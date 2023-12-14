@@ -25,6 +25,7 @@ const openEnded = true;
 const levelModelLoader = new GLTFLoader();
 levelModelLoader.load("houdini/export/output2.gltf", (gltf) => {
 	const levelModel = gltf.scene.children[0];
+	levelModel.material.side = THREE.DoubleSide;
 
 	level.add(levelModel);
 
@@ -116,14 +117,23 @@ function updateOrbitTarget(playerInput, ship, orbitRadius) {
 	return new THREE.Vector3(targetX, targetY, ship.position.z);
 }
 
+playerShip.rotation.order = "ZXY";
+
+let bank = 0;
+
 const animate = () => {
 	renderer.render( scene, camera );
 
-	levelProgress = (levelProgress + 0.0005) % 1;
+	levelProgress = (levelProgress + 0.0008) % 1;
 
 	if (levelSpline != null) {
 		const goalPosition = levelSpline.getPointAt(levelProgress);
+		playerShip.rotation.z = 0;
+		const lastY = playerShip.rotation.y;
 		playerShip.lookAt(levelSpline.getPointAt((levelProgress + 0.01) % 1));
+
+		bank = THREE.MathUtils.lerp(bank, Math.atan(lastY - playerShip.rotation.y) * 2, 0.1);
+		playerShip.rotation.z = bank;
 		playerShip.position.copy(goalPosition);
 	}
 
