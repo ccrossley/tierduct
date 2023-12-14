@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 const container = document.body;
 
@@ -16,57 +16,65 @@ const orbitRadius = 100; // Example radius, adjust as needed
 let level = new THREE.Group();
 const tubeLength = 250;
 
+let levelSpline;
+let levelSplinePoints;
+let levelProgress = 0;
+
 const openEnded = true;
 
-let cylinder = new THREE.Mesh(
-	new THREE.CylinderGeometry(10, 10, tubeLength, 32, tubeLength, openEnded),
-	new THREE.MeshStandardMaterial({color: 0xFFFFFF, side: THREE.BackSide})
-);
-/*
-for(let i = 0; i < 10; i++) {
-	const depth = (i / 10 - .5) * tubeLength;
-	const pointLight = new THREE.PointLight(0x00ff00, 10 + i % 3);
+const levelModelLoader = new GLTFLoader();
+levelModelLoader.load("houdini/export/output2.gltf", (gltf) => {
+	const levelModel = gltf.scene.children[0];
 
-	pointLight.position.x = 20 * Math.sin(depth);
-	pointLight.position.y = 5;
-	pointLight.position.z = depth;
+	level.add(levelModel);
 
-	level.add(pointLight);
-}
-*/
-//level.add(cylinder);
-const levelModelLoader = new FBXLoader();
-levelModelLoader.load("houdini/export/out.fbx", function(fbx) {
-	//level.add(fbx.scene);
-	console.log(fbx);
+	levelModel.geometry.computeVertexNormals();
 
-	// theScene = fbx.scene;
+	const numGuideposts = Math.max(...Array.from(levelModel.geometry.attributes._path_hint_id.array)) + 1;
 
-	//const geo = theScene.children[0].geometry;
+	const {array, itemSize} = levelModel.geometry.attributes.position;
+	levelSplinePoints = Array(numGuideposts)
+		.fill()
+		.map((_, index) => new THREE.Vector3(
+			...array.slice(index * 4 * itemSize, index * 4 * itemSize + 3)
+		)
+	);
 
-	console.log(geo);
-	//gltf.scene.scale.set(100, 100, 100);
+	for (const pos of levelSplinePoints) {
+		let sphere = new THREE.Mesh(
+			new THREE.SphereGeometry(0.1),
+			new THREE.MeshBasicMaterial({color: 0xFFFF00})
+		);
+		sphere.position.copy(pos);
+		levelModel.add(sphere);
+	}
+
+	for (let i = 0; i < numGuideposts; i += 5) {
+		const pos = levelSplinePoints[i];
+		const pointLight = new THREE.PointLight(0x00ff00, (i % 3) * 5);
+		pointLight.position.copy(pos);
+		pointLight.position.y += 8;
+		levelModel.add(pointLight);
+	}
+
+	levelSpline = new THREE.CatmullRomCurve3( levelSplinePoints, true );
+
 })
-
-//cylinder.position.z = -20;
-//cylinder.position.y = -5;
-
-cylinder.rotation.y = Math.PI / 2;
-cylinder.rotation.z = Math.PI / 2;
 
 let playerShip = new THREE.Mesh(
 	new THREE.BoxGeometry(1, 1, 1), // Example geometry
 	new THREE.MeshStandardMaterial({ color: 0xff0000 })
 );
-const playerPointLight = new THREE.PointLight(0xff0000, 50);
-playerPointLight.position.z += 5;
-playerPointLight.position.y += 15;
+const playerPointLight = new THREE.PointLight(0xffff00, 50);
+playerPointLight.position.z += 30;
+playerPointLight.position.y -= 4;
 
 playerShip.add(playerPointLight);
 
 const camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
-camera.position.z = 10;
+camera.position.z = -10;
 camera.position.y = 2;
+camera.rotation.y = Math.PI;
 
 playerShip.add(camera);
 
@@ -108,17 +116,16 @@ function updateOrbitTarget(playerInput, ship, orbitRadius) {
 	return new THREE.Vector3(targetX, targetY, ship.position.z);
 }
 
-const animate = () => {``
+const animate = () => {
 	renderer.render( scene, camera );
 
-	// Get player input (this part is up to your implementation)
-	const playerInput = getPlayerInput(); // 'left' or 'right'
-	playerShip.position.z--;
-	if (playerShip.position.z < -tubeLength / 2) {
-		playerShip.position.z = tubeLength / 2;
+	levelProgress = (levelProgress + 0.0005) % 1;
+
+	if (levelSpline != null) {
+		const goalPosition = levelSpline.getPointAt(levelProgress);
+		playerShip.lookAt(levelSpline.getPointAt((levelProgress + 0.01) % 1));
+		playerShip.position.copy(goalPosition);
 	}
-	// Update the orbit target
-	const targetLocation = updateOrbitTarget(playerInput, playerShip, orbitRadius);
 
 	requestAnimationFrame(animate);
 };
