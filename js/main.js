@@ -25,16 +25,18 @@ const openEnded = true;
 const levelModelLoader = new GLTFLoader();
 levelModelLoader.load("houdini/export/output2.gltf", (gltf) => {
 	const levelModel = gltf.scene.children[0];
+	console.log(levelModel);
 	levelModel.material.side = THREE.DoubleSide;
 
 	level.add(levelModel);
 
 	levelModel.geometry.computeVertexNormals();
 
-	const numGuideposts = Math.max(...Array.from(levelModel.geometry.attributes._path_hint_id.array)) + 1;
+	const guideposts = Array.from(levelModel.geometry.attributes._entity_type.array).filter((value) => { return value === 1});
+	const numGuideposts = guideposts.length / 4;
 
 	const {array, itemSize} = levelModel.geometry.attributes.position;
-	levelSplinePoints = Array(numGuideposts)
+	levelSplinePoints = guideposts
 		.fill()
 		.map((_, index) => new THREE.Vector3(
 			...array.slice(index * 4 * itemSize, index * 4 * itemSize + 3)
@@ -124,7 +126,7 @@ let bank = 0;
 const animate = () => {
 	renderer.render( scene, camera );
 
-	levelProgress = (levelProgress + 0.0008) % 1;
+	levelProgress = (levelProgress + 0.0012) % 1;
 
 	if (levelSpline != null) {
 		const goalPosition = levelSpline.getPointAt(levelProgress);
