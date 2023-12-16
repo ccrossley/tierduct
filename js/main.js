@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { VertexNormalsHelper } from 'three/addons/helpers/VertexNormalsHelper.js';
 
 const container = document.body;
 
@@ -22,61 +23,77 @@ let levelProgress = 0;
 
 const openEnded = true;
 
-const levelModelLoader = new GLTFLoader();
-levelModelLoader.load("houdini/export/output2.gltf", (gltf) => {
-	const levelModel = gltf.scene.children[0];
-	console.log(levelModel);
-	levelModel.material.side = THREE.DoubleSide;
+const loadGLTF = (url) => new Promise(resolve => new GLTFLoader().load(url, resolve));
 
-	level.add(levelModel);
+const levelModel = (await loadGLTF("houdini/export/level_geom.gltf")).scene.children[0];
+level.add(levelModel);
 
-	levelModel.geometry.computeVertexNormals();
+levelModel.material.roughness = 1;
 
-	const guideposts = Array.from(levelModel.geometry.attributes._entity_type.array).filter((value) => { return value === 1});
-	const numGuideposts = guideposts.length / 4;
-
-	const {array, itemSize} = levelModel.geometry.attributes.position;
-	levelSplinePoints = guideposts
-		.fill()
-		.map((_, index) => new THREE.Vector3(
-			...array.slice(index * 4 * itemSize, index * 4 * itemSize + 3)
-		)
-	);
-
-	for (const pos of levelSplinePoints) {
-		let sphere = new THREE.Mesh(
-			new THREE.SphereGeometry(0.1),
-			new THREE.MeshBasicMaterial({color: 0xFFFF00})
-		);
-		sphere.position.copy(pos);
-		levelModel.add(sphere);
+{
+	let temp;
+	const {geometry} = levelModel;
+	for ( let i = 0; i < geometry.index.array.length; i += 3 ) {
+		temp = geometry.index.array[ i ];
+		geometry.index.array[ i ] = geometry.index.array[ i + 2 ];
+		geometry.index.array[ i + 2 ] = temp;
 	}
+}
 
-	for (let i = 0; i < numGuideposts; i += 5) {
-		const pos = levelSplinePoints[i];
-		const pointLight = new THREE.PointLight(0x00ff00, (i % 3) * 5);
-		pointLight.position.copy(pos);
-		pointLight.position.y += 8;
-		levelModel.add(pointLight);
-	}
+const levelPositions = (await loadGLTF("houdini/export/level_path.gltf")).scene.children[0].geometry.attributes.position;
+const numVerts = levelPositions.array.length / 3;
+const numGuideposts = numVerts / 4;
+// console.log(numGuideposts);
 
-	levelSpline = new THREE.CatmullRomCurve3( levelSplinePoints, true );
-
-})
-
-let playerShip = new THREE.Mesh(
-	new THREE.BoxGeometry(1, 1, 1), // Example geometry
-	new THREE.MeshStandardMaterial({ color: 0xff0000 })
+const {array, itemSize} = levelPositions;
+levelSplinePoints = Array(numGuideposts)
+	.fill()
+	.map((_, index) => new THREE.Vector3(
+		...array.slice(index * 4 * itemSize, index * 4 * itemSize + 3)
+	)
 );
-const playerPointLight = new THREE.PointLight(0xffff00, 50);
+
+// for (const pos of levelSplinePoints) {
+// 	let sphere = new THREE.Mesh(
+// 		new THREE.SphereGeometry(0.1),
+// 		new THREE.MeshBasicMaterial({color: 0xFFFF00})
+// 	);
+// 	sphere.position.copy(pos);
+// 	levelModel.add(sphere);
+// }
+
+for (let i = 0; i < numGuideposts; i++) {
+	const pos = levelSplinePoints[i];
+	const pointLight = new THREE.PointLight(0xFFAA88, 20);
+	pointLight.position.copy(pos);
+	pointLight.position.y += 5;
+	levelModel.add(pointLight);
+}
+
+levelSpline = new THREE.CatmullRomCurve3( levelSplinePoints, true );
+
+const playerShip = new THREE.Group();
+const pyramid = new THREE.Mesh(
+	new THREE.TetrahedronGeometry(0.5, 1),
+	new THREE.MeshLambertMaterial({ color: 0x8800aa, opacity: 0.5, transparent: true, reflectivity: 0 })
+);
+const pyramidLight1 = new THREE.PointLight(0xCC88FF, 5);
+pyramid.add(pyramidLight1);
+pyramidLight1.position.z += 5;
+const pyramidLight2 = new THREE.PointLight(0xCC88FF, 5);
+pyramid.add(pyramidLight2);
+pyramidLight2.position.z -= 5;
+
+playerShip.add(pyramid);
+const playerPointLight = new THREE.PointLight(0xCC88FF, 50);
 playerPointLight.position.z += 30;
-playerPointLight.position.y -= 4;
+playerPointLight.position.y -= 5;
 
 playerShip.add(playerPointLight);
 
-const camera = new THREE.PerspectiveCamera( 40, window.innerWidth / window.innerHeight, 1, 10000 );
-camera.position.z = -10;
-camera.position.y = 2;
+const camera = new THREE.PerspectiveCamera( 80, window.innerWidth / window.innerHeight, 1, 10000 );
+camera.position.z = -3;
+camera.position.y = 0.5;
 camera.rotation.y = Math.PI;
 
 playerShip.add(camera);
@@ -123,21 +140,34 @@ playerShip.rotation.order = "ZXY";
 
 let bank = 0;
 
-const animate = () => {
+// window.addEventListener("mousemove", ({x, y}) => {
+// 	levelProgress = x / window.innerWidth;
+// })
+
+const animate = (time) => {
 	renderer.render( scene, camera );
 
 	levelProgress = (levelProgress + 0.0012) % 1;
 
 	if (levelSpline != null) {
 		const goalPosition = levelSpline.getPointAt(levelProgress);
-		playerShip.rotation.z = 0;
-		const lastY = playerShip.rotation.y;
+		// playerShip.rotation.z = 0;
+		// const lastY = playerShip.rotation.y;
 		playerShip.lookAt(levelSpline.getPointAt((levelProgress + 0.01) % 1));
 
-		bank = THREE.MathUtils.lerp(bank, Math.atan(lastY - playerShip.rotation.y) * 2, 0.1);
-		playerShip.rotation.z = bank;
+		// bank = THREE.MathUtils.lerp(bank, Math.atan(lastY - playerShip.rotation.y) * 2, 0.1);
+		// playerShip.rotation.z = bank;
 		playerShip.position.copy(goalPosition);
+		playerShip.position.y += 4.5;
 	}
+
+	camera.position.x = 0 + Math.cos(time * 0.0033) * 0.15;
+	camera.position.y = 0.5 + Math.sin(time * 0.0040) * 0.15;
+	camera.rotation.x = 0 + Math.cos(time * 0.0033) * 0.1;
+	camera.rotation.y = Math.PI + Math.sin(time * 0.006) * 0.1;
+
+	pyramid.rotation.x += 0.04;
+	pyramid.rotation.y += 0.033;
 
 	requestAnimationFrame(animate);
 };
