@@ -42,14 +42,14 @@ levelModel.material.roughness = 1;
 
 const levelPositions = (await loadGLTF("houdini/export/level_path.gltf")).scene.children[0].geometry.attributes.position;
 const numVerts = levelPositions.array.length / 3;
-const numGuideposts = numVerts / 4;
+const numGuideposts = numVerts;
 // console.log(numGuideposts);
 
 const {array, itemSize} = levelPositions;
 levelSplinePoints = Array(numGuideposts)
 	.fill()
 	.map((_, index) => new THREE.Vector3(
-		...array.slice(index * 4 * itemSize, index * 4 * itemSize + 3)
+		...array.slice(index * itemSize, index * itemSize + 3)
 	)
 );
 
