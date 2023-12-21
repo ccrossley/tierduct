@@ -15,7 +15,6 @@ scene.background = new THREE.Color( 0x222222 );
 const orbitRadius = 100; // Example radius, adjust as needed
 
 let level = new THREE.Group();
-const tubeLength = 250;
 
 let levelSpline;
 let levelSplinePoints;
@@ -30,15 +29,15 @@ level.add(levelModel);
 
 levelModel.material.roughness = 1;
 
-{
-	let temp;
-	const {geometry} = levelModel;
-	for ( let i = 0; i < geometry.index.array.length; i += 3 ) {
-		temp = geometry.index.array[ i ];
-		geometry.index.array[ i ] = geometry.index.array[ i + 2 ];
-		geometry.index.array[ i + 2 ] = temp;
-	}
-}
+// flipNormals: {
+// 	let temp;
+// 	const {geometry} = levelModel;
+// 	for ( let i = 0; i < geometry.index.array.length; i += 3 ) {
+// 		temp = geometry.index.array[ i ];
+// 		geometry.index.array[ i ] = geometry.index.array[ i + 2 ];
+// 		geometry.index.array[ i + 2 ] = temp;
+// 	}
+// }
 
 const levelPositions = (await loadGLTF("houdini/export/level_path.gltf")).scene.children[0].geometry.attributes.position;
 const numVerts = levelPositions.array.length / 3;
