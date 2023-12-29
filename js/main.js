@@ -12,8 +12,7 @@ container.appendChild( renderer.domElement );
 const scene = new THREE.Scene();
 scene.background = new THREE.Color( 0x222222 );
 
-const orbitRadius = 100; // Example radius, adjust as needed
-
+const orbitRadius = 5; // Example radius, adjust as needed
 let level = new THREE.Group();
 
 let levelSpline;
@@ -72,6 +71,9 @@ for (let i = 0; i < numGuideposts; i++) {
 levelSpline = new THREE.CatmullRomCurve3( levelSplinePoints, true );
 
 const playerShip = new THREE.Group();
+const playerGroup = new THREE.Group();
+const playerMovementGroup = new THREE.Group();
+
 const pyramid = new THREE.Mesh(
 	new THREE.TetrahedronGeometry(0.5, 1),
 	new THREE.MeshLambertMaterial({ color: 0x8800aa, opacity: 0.5, transparent: true, reflectivity: 0 })
@@ -90,14 +92,18 @@ playerPointLight.position.y -= 5;
 
 playerShip.add(playerPointLight);
 
-const camera = new THREE.PerspectiveCamera( 80, window.innerWidth / window.innerHeight, 1, 10000 );
-camera.position.z = -3;
-camera.position.y = 0.5;
+const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
+camera.position.z = -10;
+//camera.position.y = 0.5;
 camera.rotation.y = Math.PI;
 
-playerShip.add(camera);
+playerGroup.add(camera);
 
-level.add(playerShip);
+playerShip.position.y = -orbitRadius;
+playerGroup.add(playerMovementGroup);
+playerMovementGroup.add(playerShip);
+
+level.add(playerGroup);
 
 scene.add(level);
 
@@ -109,33 +115,7 @@ window.onresize = () => {
 	renderer.setSize( window.innerWidth, window.innerHeight );
 };
 
-function getPlayerInput() {
-	// Placeholder for your input handling logic
-	// For example, this could listen to keyboard events and return 'left' or 'right'
-	// You need to implement this part based on how you want to handle input
-}
-
-// Function to update the orbit target based on player input
-function updateOrbitTarget(playerInput, ship, orbitRadius) {
-	// Constants for orbit speed and direction
-	const ORBIT_SPEED = 0.05; // Adjust as needed
-	const direction = playerInput === 'left' ? -1 : 1; // Assuming 'left' or 'right' input
-
-	// Current angle of the ship around the central point
-	let currentAngle = Math.atan2(ship.position.y, ship.position.x);
-
-	// Update the angle based on the direction and speed
-	currentAngle += ORBIT_SPEED * direction;
-
-	// Calculate the new target position
-	const targetX = Math.cos(currentAngle) * orbitRadius;
-	const targetY = Math.sin(currentAngle) * orbitRadius;
-
-	// Return the new target location
-	return new THREE.Vector3(targetX, targetY, ship.position.z);
-}
-
-playerShip.rotation.order = "ZXY";
+playerGroup.rotation.order = "ZXY";
 
 let bank = 0;
 
@@ -143,30 +123,69 @@ let bank = 0;
 // 	levelProgress = x / window.innerWidth;
 // })
 
+const keysDown = new Map();
+
+window.addEventListener("keydown", (e) => {
+	if (e.repeat) return;
+
+	keysDown.set(e.key, true);
+});
+
+window.addEventListener("keyup", (e) => {
+	keysDown.set(e.key, false);
+});
+
+let currentAngle = 0;
 const animate = (time) => {
 	renderer.render( scene, camera );
 
-	levelProgress = (levelProgress + 0.0012) % 1;
+	levelProgress = (levelProgress + 0.00025) % 1;
+
+	let turnAmount = 0;
+
+	if (keysDown.get("ArrowLeft")) {
+		turnAmount += 0.1;
+	}
+
+	if (keysDown.get("ArrowRight")) {
+		turnAmount -= 0.1;
+	}
+
+	currentAngle += turnAmount;
+
+	if (turnAmount > 0) {
+		while(currentAngle < playerMovementGroup.rotation.z - Math.PI) {
+			currentAngle += 2*Math.PI;
+		}
+	}else{
+		while(currentAngle > playerMovementGroup.rotation.z + Math.PI) {
+			currentAngle -= 2*Math.PI;
+		}
+	}
+
+	playerMovementGroup.rotation.z = THREE.MathUtils.lerp(playerMovementGroup.rotation.z, currentAngle, 0.1);
 
 	if (levelSpline != null) {
 		const goalPosition = levelSpline.getPointAt(levelProgress);
 		// playerShip.rotation.z = 0;
 		// const lastY = playerShip.rotation.y;
-		playerShip.lookAt(levelSpline.getPointAt((levelProgress + 0.01) % 1));
-
+		playerGroup.lookAt(levelSpline.getPointAt((levelProgress + 0.01) % 1));
 		// bank = THREE.MathUtils.lerp(bank, Math.atan(lastY - playerShip.rotation.y) * 2, 0.1);
 		// playerShip.rotation.z = bank;
-		playerShip.position.copy(goalPosition);
-		playerShip.position.y += 4.5;
+		playerGroup.position.copy(goalPosition);
+		//camera.lookAt(camera.worldToLocal(playerShip.localToWorld(playerShip.position)));
+		//const lastPlayerZ = playerMovementGroup.rotation.z;
+		//playerMovementGroup.rotation.z = THREE.MathUtils.lerp(lastPlayerZ, goalPlayerZ - lastPlayerZ, 0.2);
+		//playerShip.position.y += 4.5;
 	}
 
-	camera.position.x = 0 + Math.cos(time * 0.0033) * 0.15;
-	camera.position.y = 0.5 + Math.sin(time * 0.0040) * 0.15;
-	camera.rotation.x = 0 + Math.cos(time * 0.0033) * 0.1;
-	camera.rotation.y = Math.PI + Math.sin(time * 0.006) * 0.1;
+	//camera.position.x = 0 + Math.cos(time * 0.0033) * 0.15;
+	//camera.position.y = 0.5 + Math.sin(time * 0.0040) * 0.15;
+	//camera.rotation.x = 0 + Math.cos(time * 0.0033) * 0.1;
+	//camera.rotation.y = Math.PI + Math.sin(time * 0.006) * 0.1;
 
-	pyramid.rotation.x += 0.04;
-	pyramid.rotation.y += 0.033;
+	//pyramid.rotation.x += 0.04;
+	//pyramid.rotation.y += 0.033;
 
 	requestAnimationFrame(animate);
 };
