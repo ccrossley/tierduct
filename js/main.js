@@ -74,18 +74,16 @@ const playerShip = new THREE.Group();
 const playerGroup = new THREE.Group();
 const playerMovementGroup = new THREE.Group();
 
-const pyramid = new THREE.Mesh(
-	new THREE.TetrahedronGeometry(0.5, 1),
-	new THREE.MeshLambertMaterial({ color: 0x8800aa, opacity: 0.5, transparent: true, reflectivity: 0 })
-);
+const shipModel= (await loadGLTF("houdini/export/ship_geom.gltf")).scene.children[0];
+
 const pyramidLight1 = new THREE.PointLight(0xCC88FF, 5);
-pyramid.add(pyramidLight1);
+shipModel.add(pyramidLight1);
 pyramidLight1.position.z += 5;
 const pyramidLight2 = new THREE.PointLight(0xCC88FF, 5);
-pyramid.add(pyramidLight2);
+shipModel.add(pyramidLight2);
 pyramidLight2.position.z -= 5;
 
-playerShip.add(pyramid);
+playerShip.add(shipModel);
 const playerPointLight = new THREE.PointLight(0xCC88FF, 50);
 playerPointLight.position.z += 30;
 playerPointLight.position.y -= 5;
