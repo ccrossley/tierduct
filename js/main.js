@@ -79,7 +79,8 @@ const players = new Array(maxPlayers);
 const ships = new Array(maxPlayers);
 
 const speedVariance = 0.0001;
-const turnVariance = 0.75;
+const turnVariance = 0.15;
+const AIThinkDelay = 200;
 
 //need to do these in parallel...probably?
 async function loadShips() {
@@ -95,8 +96,8 @@ const addPlayer = (playerIndex, isPlayer = false) => {
 	const player = {
 		shipId: playerIndex,
 		speed: (0.00025 + (speedVariance * Math.random())),
-		currentAngle: 0,
-		turnChance: (0.25 + (turnVariance) * Math.random()),
+		currentAngle: 360 * Math.random(),
+		turnChance: (0.2 + ((turnVariance) * Math.random())),
 		levelProgress: Math.random(),
 		lap: 1,
 		isPlayer: isPlayer,
@@ -172,9 +173,15 @@ window.addEventListener("keydown", (e) => {
 window.addEventListener("keyup", (e) => {
 	keysDown.set(e.key, false);
 });
-
+let nextAITime = 0;
 const animate = (time) => {
 	renderer.render( scene, camera );
+
+	const isAITimer = (nextAITime <= time || nextAITime <= 0);
+
+	if (isAITimer) {
+		nextAITime = time + AIThinkDelay;
+	}
 
 	for (const player of players) {
 		if (!player) continue;
@@ -186,7 +193,7 @@ const animate = (time) => {
 
 		if (levelProgress < lastLevelProgress) {
 			player.lap++;
-			console.log(`new lap: ${player.lap}`);
+			//console.log(`new lap: ${player.lap}`);
 		}
 
 		let turnAmount = 0;
@@ -207,8 +214,19 @@ const animate = (time) => {
 			if (keysDown.get("ArrowDown")) {
 				player.speed = Math.min(Math.max(0, player.speed - 0.00001), 1);
 			}
-		} else {
-		//	turnAmount = (Math.random() <= player.turnChance) ? 0.1 : 0;
+
+		} else if (isAITimer) {
+
+			// "AI"
+			if (Math.random() <= player.turnChance) {
+				turnAmount = 0.1;
+			} else {
+				turnAmount = 0;
+			}
+
+			if (Math.random() > 0.25) {
+				turnAmount *= -1;
+			}
 		}
 
 		currentAngle += turnAmount;
@@ -240,4 +258,4 @@ const animate = (time) => {
 	requestAnimationFrame(animate);
 };
 
-animate();
+animate(0);
