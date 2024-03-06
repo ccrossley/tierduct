@@ -26,6 +26,16 @@ level.add(levelModel);
 
 levelModel.material.roughness = 1;
 
+const clamp = (x, minVal, maxVal) => {
+	if (maxVal < minVal) {
+		[maxVal, minVal] = [minVal, maxVal];
+	}
+	return Math.max(minVal, Math.min(maxVal, x));
+}
+
+const clamp01 = x => clamp(x, 0, 1);
+
+
 // flipNormals: {
 // 	let temp;
 // 	const {geometry} = levelModel;
@@ -73,34 +83,29 @@ for (let i = 0; i < numGuideposts; i++) {
 
 levelSpline = new THREE.CatmullRomCurve3( levelSplinePoints, true );
 
-const maxPlayers = 35;
+const maxRacers = 35;
 const playerIsFasterThanBotScalar = 1.25;
-const players = new Array(maxPlayers);
-const ships = new Array(maxPlayers);
+const racers = new Array(maxRacers);
 
 const speedVariance = 0.0001;
 const turnVariance = 0.15;
 const AIThinkDelay = 200;
 
-//need to do these in parallel...probably?
-async function loadShips() {
-	for (let i = 0; i < maxPlayers; i++) {
-		ships[i] = await loadGLTF(`houdini/export/ships/ship_${i}.gltf`);
-		console.log(`ship ${i} loaded`);
-	}
-}
+const ships = await Promise.all(
+	Array(maxRacers)
+		.fill()
+		.map((_, i) => loadGLTF(`houdini/export/ships/ship_${i}.gltf`))
+);
 
-await loadShips();
-
-const addPlayer = (playerIndex, isPlayer = false) => {
-	const player = {
-		shipId: playerIndex,
+const addRacer = (racerID, isPlayer = false) => {
+	const racer = {
+		racerID,
 		speed: (0.00025 + (speedVariance * Math.random())),
 		currentAngle: 360 * Math.random(),
 		turnChance: (0.2 + ((turnVariance) * Math.random())),
 		levelProgress: Math.random(),
 		lap: 1,
-		isPlayer: isPlayer,
+		isPlayer,
 
 		group: new THREE.Group(),
 		shipGroup: new THREE.Group(),
@@ -108,17 +113,17 @@ const addPlayer = (playerIndex, isPlayer = false) => {
 	};
 
 	if (isPlayer) {
-		player.group.add(camera);
-		player.speed *= playerIsFasterThanBotScalar;
+		racer.group.add(camera);
+		racer.speed *= playerIsFasterThanBotScalar;
 	}
 
-	const shipModel = ships[playerIndex].scene.children[0];
+	const shipModel = ships[racerID].scene.children[0];
 
 	shipModel.scale.set(1.5, 1.5, 1.5);
 
-	player.shipGroup.position.y = -orbitRadius;
-	player.group.add(player.movementGroup);
-	player.movementGroup.add(player.shipGroup);
+	racer.shipGroup.position.y = -orbitRadius;
+	racer.group.add(racer.movementGroup);
+	racer.movementGroup.add(racer.shipGroup);
 
 	const pyramidLight1 = new THREE.PointLight(0xCC88FF, 5);
 	shipModel.add(pyramidLight1);
@@ -127,30 +132,29 @@ const addPlayer = (playerIndex, isPlayer = false) => {
 	shipModel.add(pyramidLight2);
 	pyramidLight2.position.z -= 5;
 
-	player.shipGroup.add(shipModel);
-	const playerPointLight = new THREE.PointLight(0xCC88FF, 50);
-	playerPointLight.position.z += 30;
-	playerPointLight.position.y -= 5;
+	racer.shipGroup.add(shipModel);
+	const racerPointLight = new THREE.PointLight(0xCC88FF, 50);
+	racerPointLight.position.z += 30;
+	racerPointLight.position.y -= 5;
 
-	player.shipGroup.add(playerPointLight);
+	racer.shipGroup.add(racerPointLight);
 
-	player.group.rotation.order = "ZXY";
+	racer.group.rotation.order = "ZXY";
 
-	players[playerIndex] = player;
+	racers[racerID] = racer;
 
-	level.add(player.group);
+	level.add(racer.group);
 
-	return player;
+	return racer;
 }
 
-const addPlayers = (count) => {
-	addPlayer(0, true);
-	for (let i = 1; i < count; i++) {
-		addPlayer(i);
+const addRacers = (count) => {
+	for (let i = 0; i < count; i++) {
+		addRacer(i, i === 0);
 	}
 }
 
-addPlayers(maxPlayers);
+addRacers(maxRacers);
 
 scene.add(level);
 
@@ -183,22 +187,22 @@ const animate = (time) => {
 		nextAITime = time + AIThinkDelay;
 	}
 
-	for (const player of players) {
-		if (!player) continue;
+	for (const racer of racers) {
+		if (!racer) continue;
 
-		const lastLevelProgress = player.levelProgress;
-		const levelProgress = (lastLevelProgress + player.speed) % 1;
+		const lastLevelProgress = racer.levelProgress;
+		const levelProgress = (lastLevelProgress + racer.speed) % 1;
 
-		let currentAngle = player.currentAngle;
+		let currentAngle = racer.currentAngle;
 
 		if (levelProgress < lastLevelProgress) {
-			player.lap++;
-			//console.log(`new lap: ${player.lap}`);
+			racer.lap++;
+			//console.log(`new lap: ${racer.lap}`);
 		}
 
 		let turnAmount = 0;
 
-		if (player.isPlayer) {
+		if (racer.isPlayer) {
 			if (keysDown.get("ArrowLeft")) {
 				turnAmount += 0.1;
 			}
@@ -208,17 +212,17 @@ const animate = (time) => {
 			}
 
 			if (keysDown.get("ArrowUp")) {
-				player.speed = Math.min(Math.max(0, player.speed + 0.00001), 1);
-			}
-
-			if (keysDown.get("ArrowDown")) {
-				player.speed = Math.min(Math.max(0, player.speed - 0.00001), 1);
+				racer.speed = clamp01(racer.speed + 0.00001);
+			} else if (keysDown.get("ArrowDown")) {
+				racer.speed = clamp01(racer.speed - 0.00001);
+			} else {
+				racer.speed *= 0.999;
 			}
 
 		} else if (isAITimer) {
 
 			// "AI"
-			if (Math.random() <= player.turnChance) {
+			if (Math.random() <= racer.turnChance) {
 				turnAmount = 0.1;
 			} else {
 				turnAmount = 0;
@@ -231,7 +235,7 @@ const animate = (time) => {
 
 		currentAngle += turnAmount;
 
-		const movementGroup = player.movementGroup;
+		const movementGroup = racer.movementGroup;
 
 		if (turnAmount > 0) {
 			while(currentAngle < movementGroup.rotation.z - Math.PI) {
@@ -243,17 +247,17 @@ const animate = (time) => {
 			}
 		}
 
-		player.movementGroup.rotation.z = THREE.MathUtils.lerp(movementGroup.rotation.z, currentAngle, 0.1);
+		racer.movementGroup.rotation.z = THREE.MathUtils.lerp(movementGroup.rotation.z, currentAngle, 0.1);
 
 		if (levelSpline != null) {
 			const goalPosition = levelSpline.getPointAt(levelProgress);
 
-			player.group.lookAt(levelSpline.getPointAt((levelProgress + player.speed) % 1));
-			player.group.position.copy(goalPosition);
+			racer.group.lookAt(levelSpline.getPointAt((levelProgress + racer.speed) % 1));
+			racer.group.position.copy(goalPosition);
 		}
 
-		player.levelProgress = levelProgress;
-		player.currentAngle = currentAngle;
+		racer.levelProgress = levelProgress;
+		racer.currentAngle = currentAngle;
 	}
 	requestAnimationFrame(animate);
 };
