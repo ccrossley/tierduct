@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { VertexNormalsHelper } from 'three/addons/helpers/VertexNormalsHelper.js';
 
 const container = document.body;
 
@@ -17,7 +16,6 @@ let level = new THREE.Group();
 
 let levelSpline;
 let levelSplinePoints;
-let levelProgress = 0;
 
 const openEnded = true;
 
@@ -60,6 +58,11 @@ levelSplinePoints = Array(numGuideposts)
 // 	levelModel.add(sphere);
 // }
 
+const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
+camera.position.z = -10;
+//camera.position.y = 0.5;
+camera.rotation.y = Math.PI;
+
 for (let i = 0; i < numGuideposts; i++) {
 	const pos = levelSplinePoints[i];
 	const pointLight = new THREE.PointLight(0xFFAA88, 20);
@@ -70,38 +73,83 @@ for (let i = 0; i < numGuideposts; i++) {
 
 levelSpline = new THREE.CatmullRomCurve3( levelSplinePoints, true );
 
-const playerShip = new THREE.Group();
-const playerGroup = new THREE.Group();
-const playerMovementGroup = new THREE.Group();
+const maxPlayers = 35;
+const playerIsFasterThanBotScalar = 1.25;
+const players = new Array(maxPlayers);
+const ships = new Array(maxPlayers);
 
-const shipModel= (await loadGLTF("houdini/export/ship_geom.gltf")).scene.children[0];
+const speedVariance = 0.0001;
+const turnVariance = 0.75;
 
-const pyramidLight1 = new THREE.PointLight(0xCC88FF, 5);
-shipModel.add(pyramidLight1);
-pyramidLight1.position.z += 5;
-const pyramidLight2 = new THREE.PointLight(0xCC88FF, 5);
-shipModel.add(pyramidLight2);
-pyramidLight2.position.z -= 5;
+//need to do these in parallel...probably?
+async function loadShips() {
+	for (let i = 0; i < maxPlayers; i++) {
+		ships[i] = await loadGLTF(`houdini/export/ships/ship_${i}.gltf`);
+		console.log(`ship ${i} loaded`);
+	}
+}
 
-playerShip.add(shipModel);
-const playerPointLight = new THREE.PointLight(0xCC88FF, 50);
-playerPointLight.position.z += 30;
-playerPointLight.position.y -= 5;
+await loadShips();
 
-playerShip.add(playerPointLight);
+const addPlayer = (playerIndex, isPlayer = false) => {
+	const player = {
+		shipId: playerIndex,
+		speed: (0.00025 + (speedVariance * Math.random())),
+		currentAngle: 0,
+		turnChance: (0.25 + (turnVariance) * Math.random()),
+		levelProgress: Math.random(),
+		lap: 1,
+		isPlayer: isPlayer,
 
-const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
-camera.position.z = -10;
-//camera.position.y = 0.5;
-camera.rotation.y = Math.PI;
+		group: new THREE.Group(),
+		shipGroup: new THREE.Group(),
+		movementGroup: new THREE.Group(),
+	};
 
-playerGroup.add(camera);
+	if (isPlayer) {
+		player.group.add(camera);
+		player.speed *= playerIsFasterThanBotScalar;
+	}
 
-playerShip.position.y = -orbitRadius;
-playerGroup.add(playerMovementGroup);
-playerMovementGroup.add(playerShip);
+	const shipModel = ships[playerIndex].scene.children[0];
 
-level.add(playerGroup);
+	shipModel.scale.set(1.5, 1.5, 1.5);
+
+	player.shipGroup.position.y = -orbitRadius;
+	player.group.add(player.movementGroup);
+	player.movementGroup.add(player.shipGroup);
+
+	const pyramidLight1 = new THREE.PointLight(0xCC88FF, 5);
+	shipModel.add(pyramidLight1);
+	pyramidLight1.position.z += 5;
+	const pyramidLight2 = new THREE.PointLight(0xCC88FF, 5);
+	shipModel.add(pyramidLight2);
+	pyramidLight2.position.z -= 5;
+
+	player.shipGroup.add(shipModel);
+	const playerPointLight = new THREE.PointLight(0xCC88FF, 50);
+	playerPointLight.position.z += 30;
+	playerPointLight.position.y -= 5;
+
+	player.shipGroup.add(playerPointLight);
+
+	player.group.rotation.order = "ZXY";
+
+	players[playerIndex] = player;
+
+	level.add(player.group);
+
+	return player;
+}
+
+const addPlayers = (count) => {
+	addPlayer(0, true);
+	for (let i = 1; i < count; i++) {
+		addPlayer(i);
+	}
+}
+
+addPlayers(maxPlayers);
 
 scene.add(level);
 
@@ -112,14 +160,6 @@ window.onresize = () => {
 
 	renderer.setSize( window.innerWidth, window.innerHeight );
 };
-
-playerGroup.rotation.order = "ZXY";
-
-let bank = 0;
-
-// window.addEventListener("mousemove", ({x, y}) => {
-// 	levelProgress = x / window.innerWidth;
-// })
 
 const keysDown = new Map();
 
@@ -133,58 +173,70 @@ window.addEventListener("keyup", (e) => {
 	keysDown.set(e.key, false);
 });
 
-let currentAngle = 0;
 const animate = (time) => {
 	renderer.render( scene, camera );
 
-	levelProgress = (levelProgress + 0.00025) % 1;
+	for (const player of players) {
+		if (!player) continue;
 
-	let turnAmount = 0;
+		const lastLevelProgress = player.levelProgress;
+		const levelProgress = (lastLevelProgress + player.speed) % 1;
 
-	if (keysDown.get("ArrowLeft")) {
-		turnAmount += 0.1;
-	}
+		let currentAngle = player.currentAngle;
 
-	if (keysDown.get("ArrowRight")) {
-		turnAmount -= 0.1;
-	}
-
-	currentAngle += turnAmount;
-
-	if (turnAmount > 0) {
-		while(currentAngle < playerMovementGroup.rotation.z - Math.PI) {
-			currentAngle += 2*Math.PI;
+		if (levelProgress < lastLevelProgress) {
+			player.lap++;
+			console.log(`new lap: ${player.lap}`);
 		}
-	}else{
-		while(currentAngle > playerMovementGroup.rotation.z + Math.PI) {
-			currentAngle -= 2*Math.PI;
+
+		let turnAmount = 0;
+
+		if (player.isPlayer) {
+			if (keysDown.get("ArrowLeft")) {
+				turnAmount += 0.1;
+			}
+
+			if (keysDown.get("ArrowRight")) {
+				turnAmount -= 0.1;
+			}
+
+			if (keysDown.get("ArrowUp")) {
+				player.speed = Math.min(Math.max(0, player.speed + 0.00001), 1);
+			}
+
+			if (keysDown.get("ArrowDown")) {
+				player.speed = Math.min(Math.max(0, player.speed - 0.00001), 1);
+			}
+		} else {
+		//	turnAmount = (Math.random() <= player.turnChance) ? 0.1 : 0;
 		}
+
+		currentAngle += turnAmount;
+
+		const movementGroup = player.movementGroup;
+
+		if (turnAmount > 0) {
+			while(currentAngle < movementGroup.rotation.z - Math.PI) {
+				currentAngle += 2*Math.PI;
+			}
+		} else {
+			while(currentAngle > movementGroup.rotation.z + Math.PI) {
+				currentAngle -= 2*Math.PI;
+			}
+		}
+
+		player.movementGroup.rotation.z = THREE.MathUtils.lerp(movementGroup.rotation.z, currentAngle, 0.1);
+
+		if (levelSpline != null) {
+			const goalPosition = levelSpline.getPointAt(levelProgress);
+
+			player.group.lookAt(levelSpline.getPointAt((levelProgress + player.speed) % 1));
+			player.group.position.copy(goalPosition);
+		}
+
+		player.levelProgress = levelProgress;
+		player.currentAngle = currentAngle;
 	}
-
-	playerMovementGroup.rotation.z = THREE.MathUtils.lerp(playerMovementGroup.rotation.z, currentAngle, 0.1);
-
-	if (levelSpline != null) {
-		const goalPosition = levelSpline.getPointAt(levelProgress);
-		// playerShip.rotation.z = 0;
-		// const lastY = playerShip.rotation.y;
-		playerGroup.lookAt(levelSpline.getPointAt((levelProgress + 0.01) % 1));
-		// bank = THREE.MathUtils.lerp(bank, Math.atan(lastY - playerShip.rotation.y) * 2, 0.1);
-		// playerShip.rotation.z = bank;
-		playerGroup.position.copy(goalPosition);
-		//camera.lookAt(camera.worldToLocal(playerShip.localToWorld(playerShip.position)));
-		//const lastPlayerZ = playerMovementGroup.rotation.z;
-		//playerMovementGroup.rotation.z = THREE.MathUtils.lerp(lastPlayerZ, goalPlayerZ - lastPlayerZ, 0.2);
-		//playerShip.position.y += 4.5;
-	}
-
-	//camera.position.x = 0 + Math.cos(time * 0.0033) * 0.15;
-	//camera.position.y = 0.5 + Math.sin(time * 0.0040) * 0.15;
-	//camera.rotation.x = 0 + Math.cos(time * 0.0033) * 0.1;
-	//camera.rotation.y = Math.PI + Math.sin(time * 0.006) * 0.1;
-
-	//pyramid.rotation.x += 0.04;
-	//pyramid.rotation.y += 0.033;
-
 	requestAnimationFrame(animate);
 };
 
