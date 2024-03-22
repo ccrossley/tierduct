@@ -21,7 +21,7 @@ const openEnded = true;
 
 const loadGLTF = (url) => new Promise(resolve => new GLTFLoader().load(url, resolve));
 
-const levelObject = (await loadGLTF("houdini/export/level_geom.gltf"));
+const levelObject = (await loadGLTF("houdini/export/combined_non_linear_path_looped.gltf"));
 const levelChildren = levelObject.scene.children;
 
 const levelPath = levelChildren.pop(); //path is the last child
@@ -57,13 +57,13 @@ const numVerts = levelPositions.array.length / 3;
 const numGuideposts = numVerts;
 // console.log(numGuideposts);
 
+
 //const nonLinearTrackName = "houdini/export/combined_track_pdg_0.gltf";
 const nonLinearTrackName = "houdini/export/combined_non_linear_path_looped.gltf";
 
 const nonLinearMap = (await loadGLTF(nonLinearTrackName));
 console.log("Non-Linear path", nonLinearTrackName)
 console.log(nonLinearMap);
-
 const {array, itemSize} = levelPositions;
 levelSplinePoints = Array(numGuideposts)
 	.fill()
