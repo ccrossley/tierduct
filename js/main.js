@@ -21,10 +21,16 @@ const openEnded = true;
 
 const loadGLTF = (url) => new Promise(resolve => new GLTFLoader().load(url, resolve));
 
-const levelModel = (await loadGLTF("houdini/export/level_geom.gltf")).scene.children[0];
-level.add(levelModel);
+const levelObject = (await loadGLTF("houdini/export/level_geom.gltf"));
+const levelChildren = levelObject.scene.children;
 
-levelModel.material.roughness = 1;
+const levelPath = levelChildren.pop(); //path is the last child
+
+for (const levelChild of levelChildren) {
+
+	levelChild.material.roughness = 1;
+	level.add(levelChild);
+}
 
 const clamp = (x, minVal, maxVal) => {
 	if (maxVal < minVal) {
@@ -46,10 +52,17 @@ const clamp01 = x => clamp(x, 0, 1);
 // 	}
 // }
 
-const levelPositions = (await loadGLTF("houdini/export/level_path.gltf")).scene.children[0].geometry.attributes.position;
+const levelPositions = levelPath.geometry.attributes.position;
 const numVerts = levelPositions.array.length / 3;
 const numGuideposts = numVerts;
 // console.log(numGuideposts);
+
+//const nonLinearTrackName = "houdini/export/combined_track_pdg_0.gltf";
+const nonLinearTrackName = "houdini/export/combined_non_linear_path_looped.gltf";
+
+const nonLinearMap = (await loadGLTF(nonLinearTrackName));
+console.log("Non-Linear path", nonLinearTrackName)
+console.log(nonLinearMap);
 
 const {array, itemSize} = levelPositions;
 levelSplinePoints = Array(numGuideposts)
@@ -78,7 +91,7 @@ for (let i = 0; i < numGuideposts; i++) {
 	const pointLight = new THREE.PointLight(0xFFAA88, 20);
 	pointLight.position.copy(pos);
 	pointLight.position.y += 5;
-	levelModel.add(pointLight);
+	level.add(pointLight);
 }
 
 levelSpline = new THREE.CatmullRomCurve3( levelSplinePoints, true );
