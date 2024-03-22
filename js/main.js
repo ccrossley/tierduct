@@ -24,12 +24,12 @@ const loadGLTF = (url) => new Promise(resolve => new GLTFLoader().load(url, reso
 const levelObject = (await loadGLTF("houdini/export/combined_non_linear_path_looped.gltf"));
 const levelChildren = levelObject.scene.children;
 
-const levelPath = levelChildren.pop(); //path is the last child
+const levelPath = levelChildren.pop().children[0]; //path is the last child
 
 for (const levelChild of levelChildren) {
-
-	levelChild.material.roughness = 1;
-	level.add(levelChild);
+	const mesh = levelChild.children[0];
+	mesh.material.roughness = 1;
+	level.add(mesh);
 }
 
 const clamp = (x, minVal, maxVal) => {
@@ -86,13 +86,13 @@ camera.position.z = -10;
 //camera.position.y = 0.5;
 camera.rotation.y = Math.PI;
 
-for (let i = 0; i < numGuideposts; i++) {
-	const pos = levelSplinePoints[i];
-	const pointLight = new THREE.PointLight(0xFFAA88, 20);
-	pointLight.position.copy(pos);
-	pointLight.position.y += 5;
-	level.add(pointLight);
-}
+// for (let i = 0; i < numGuideposts; i++) {
+// 	const pos = levelSplinePoints[i];
+// 	const pointLight = new THREE.PointLight(0xFFAA88, 20);
+// 	pointLight.position.copy(pos);
+// 	pointLight.position.y += 5;
+// 	level.add(pointLight);
+// }
 
 levelSpline = new THREE.CatmullRomCurve3( levelSplinePoints, true );
 
