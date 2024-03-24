@@ -1,6 +1,6 @@
 import GameScreen from "./gamescreen.js";
 import { keysDown } from "./keyboard.js";
-import Level from "./level1.js";
+import Level from "./level2.js";
 
 const container = document.body;
 const gameScreen = new GameScreen();
