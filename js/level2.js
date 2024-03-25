@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-import levelData from '../houdini/export/level_path_data.json' assert { type: 'json'}
+let levelData;
 
 class GuidePost {
     index;
@@ -70,19 +70,27 @@ export default class Level {
 
         for (const levelChild of levelModel.children) {
             const mesh = levelChild.children[0];
-            mesh.material.roughness = 1;
-            mesh.material.transparent = true;
-            mesh.material.opacity = 0.5;
+            mesh.material = new THREE.MeshBasicMaterial({
+                color: Math.floor(0xFFFFFF * Math.random()),
+                transparent: true,
+                opacity: 0.1
+            });
             level.add(mesh)
         }
 
         const levelSplinePoints = [];
+
+        if (levelData == null) {
+            levelData = await (await fetch('../houdini/export/level_path_data.json')).json();
+        }
+
         const points = levelData.points;
         const levelPositions = levelData.points;
         const sectionEdges = levelData.edges;
 
         const numGuideposts = points.length;
 
+        const sphereMaterial = new THREE.MeshBasicMaterial({color: 0xFFFF00});
         for (let i = 0; i < points.length; i++) {
             const guidePost = new GuidePost(points[i]);
 
@@ -92,7 +100,7 @@ export default class Level {
 
             const sphere = new THREE.Mesh(
                 new THREE.SphereGeometry(1),
-                new THREE.MeshBasicMaterial({color: 0xFFFF00})
+                sphereMaterial
             );
 
             sphere.position.copy(guidePost.position);
@@ -111,7 +119,7 @@ export default class Level {
             gp1.addNeighbour(sectionEdge);
 
             const geometry = new THREE.BufferGeometry().setFromPoints( [gp0.position, gp1.position] );
-            const material = new THREE.LineBasicMaterial( { color: 0xFFFF00 } );
+            const material = new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } );
 
             level.add(new THREE.Line(geometry, material));
         }

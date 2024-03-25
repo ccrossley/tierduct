@@ -12,7 +12,7 @@ export default class GameScreen {
 		this.renderer.setSize( window.innerWidth, window.innerHeight );
 		this.domElement = this.renderer.domElement;
 
-		window.onresize = this.resize;
+		window.onresize = () => this.resize();
 
 		const animate = (time) => {
 			if (this.renderContext != null) {
