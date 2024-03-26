@@ -21,6 +21,9 @@ class GuidePost {
 
     findChains() {
         for (let scout of this.neighbors.values()) {
+            if (scout.chains.length > 0) {
+                continue;
+            }
             const chain = [this, scout];
             while (scout.neighbors.size <= 2) {
                 findNewNeighbor: for (const neighbor of scout.neighbors) {
@@ -31,10 +34,8 @@ class GuidePost {
                 }
                 chain.push(scout);
             }
-            if (!scout.chains.some(chain => chain.includes(this))) {
-                for (const member of chain) {
-                    member.chains.push(chain);
-                }
+            for (const member of chain) {
+                member.chains.push(chain);
             }
         }
     }
@@ -82,9 +83,13 @@ export default class Level {
         for (const levelChild of levelModel.children) {
             const mesh = levelChild.children[0];
             mesh.material = new THREE.MeshBasicMaterial({
-                color: Math.floor(0xFFFFFF * Math.random()),
+                color: new THREE.Color(
+                    0.5 + 0.5 * Math.random(),
+                    0.5 + 0.5 * Math.random(),
+                    0.5 + 0.5 * Math.random()
+                ),
                 transparent: true,
-                opacity: 0.1
+                opacity: 0.25
             });
             level.add(mesh)
         }
@@ -101,21 +106,10 @@ export default class Level {
 
         const numGuideposts = points.length;
 
-        const sphereMaterial = new THREE.MeshBasicMaterial({color: 0xFFFF00});
         for (let i = 0; i < points.length; i++) {
             const guidePost = new GuidePost(points[i]);
-
             levelSplinePoints.push(guidePost.position);
-
             this.guidePosts[guidePost.index] = guidePost;
-
-            const sphere = new THREE.Mesh(
-                new THREE.SphereGeometry(1),
-                sphereMaterial
-            );
-
-            sphere.position.copy(guidePost.position);
-            level.add(sphere);
         }
 
         console.log("Section Edges:", sectionEdges);
@@ -142,6 +136,19 @@ export default class Level {
             const geometry = new THREE.BufferGeometry().setFromPoints( chain.map(gp => gp.position) );
             const material = new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } );
             level.add(new THREE.Line(geometry, material));
+        }
+
+        const sphereMaterial = new THREE.MeshBasicMaterial({color: 0xFFFF00});
+        for (const guidePost of Object.values(this.guidePosts)) {
+            if (guidePost.chains.length === 0) {
+                const sphere = new THREE.Mesh(
+                    new THREE.SphereGeometry(1),
+                    sphereMaterial
+                );
+
+                sphere.position.copy(guidePost.position);
+                level.add(sphere);
+            }
         }
 
         /*
