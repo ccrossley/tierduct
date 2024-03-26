@@ -7,28 +7,39 @@ let levelData;
 class GuidePost {
     index;
     position;
-    neighbours;
+    neighbors = new Set();
+    chains = [];
 
     constructor(pointData) {
         this.index = pointData[0];
         this.position = new THREE.Vector3(...pointData[1]);
-        this.neighbours = [];
     }
 
-    addNeighbour(edge) {
-        let neighbourIndex = -1
+    addNeighbor(neighbor) {
+        this.neighbors.add(neighbor);
+    }
 
-        if (edge[0] === this.index) {
-            neighbourIndex = 1;
-        } else if (edge[1] === this.index) {
-            neighbourIndex = 0;
-        } else {
-            return;
+    findChains() {
+        for (let scout of this.neighbors.values()) {
+            const chain = [this, scout];
+            while (scout.neighbors.size <= 2) {
+                findNewNeighbor: for (const neighbor of scout.neighbors) {
+                    if (!chain.includes(neighbor)) {
+                        scout = neighbor;
+                        break findNewNeighbor;
+                    }
+                }
+                chain.push(scout);
+            }
+            if (!scout.chains.some(chain => chain.includes(this))) {
+                for (const member of chain) {
+                    member.chains.push(chain);
+                }
+            }
         }
-
-        this.neighbours.push(edge[neighbourIndex])
     }
 }
+
 export default class Level {
 
     debugRenderContext;
@@ -114,17 +125,25 @@ export default class Level {
         for (const sectionEdge of sectionEdges) {
             const gp0 = this.guidePosts[sectionEdge[0]];
             const gp1 = this.guidePosts[sectionEdge[1]];
-
-            gp0.addNeighbour(sectionEdge);
-            gp1.addNeighbour(sectionEdge);
-
-            const geometry = new THREE.BufferGeometry().setFromPoints( [gp0.position, gp1.position] );
-            const material = new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } );
-
-            level.add(new THREE.Line(geometry, material));
+            gp0.addNeighbor(gp1);
+            gp1.addNeighbor(gp0);
         }
 
         console.log("Guide Posts:", this.guidePosts);
+
+        const junctions = Object.values(this.guidePosts).filter(gp => gp.neighbors.size > 2);
+        junctions.forEach(junction => junction.findChains());
+
+        const allChains = new Set(junctions.map(junction => junction.chains).flat());
+
+        console.log(allChains);
+
+        for (const chain of allChains) {
+            const geometry = new THREE.BufferGeometry().setFromPoints( chain.map(gp => gp.position) );
+            const material = new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } );
+            level.add(new THREE.Line(geometry, material));
+        }
+
         /*
         for (let i = 0; i < numGuideposts; i++) {
             const pos = levelSplinePoints[i];
