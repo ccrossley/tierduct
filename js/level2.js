@@ -10,9 +10,9 @@ class GuidePost {
     neighbors = new Set();
     chains = [];
 
-    constructor(pointData) {
-        this.index = pointData[0];
-        this.position = new THREE.Vector3(...pointData[1]);
+    constructor(index, position) {
+        this.index = index;
+        this.position = position;
     }
 
     addNeighbor(neighbor) {
@@ -45,7 +45,7 @@ export default class Level {
 
     debugRenderContext;
     debugOrbitControls;
-    guidePosts = {};
+    guidePosts = [];
 
     constructor(orbitMouseTarget) {
         const scene = new THREE.Scene();
@@ -61,11 +61,7 @@ export default class Level {
         debugOrbitControls.enablePan = false;
         debugOrbitControls.enableDamping = true;
 
-        const update = () => {
-            debugOrbitControls.update();
-        }
-
-        this.debugRenderContext = { scene, camera, update };
+        this.debugRenderContext = { scene, camera };
 
         this.loadLevel();
     }
@@ -94,23 +90,15 @@ export default class Level {
             level.add(mesh)
         }
 
-        const levelSplinePoints = [];
-
         if (levelData == null) {
             levelData = await (await fetch('../houdini/export/level_path_data.json')).json();
         }
 
         const points = levelData.points;
-        const levelPositions = levelData.points;
         const sectionEdges = levelData.edges;
 
-        const numGuideposts = points.length;
-
-        for (let i = 0; i < points.length; i++) {
-            const guidePost = new GuidePost(points[i]);
-            levelSplinePoints.push(guidePost.position);
-            this.guidePosts[guidePost.index] = guidePost;
-        }
+        this.guidePosts = levelData.points
+            .map((data, index) => new GuidePost(index, new THREE.Vector3(...data)));
 
         console.log("Section Edges:", sectionEdges);
 
@@ -125,7 +113,7 @@ export default class Level {
 
         console.log("Guide Posts:", this.guidePosts);
 
-        const junctions = Object.values(this.guidePosts).filter(gp => gp.neighbors.size > 2);
+        const junctions = this.guidePosts.filter(gp => gp.neighbors.size > 2);
         junctions.forEach(junction => junction.findChains());
 
         const allChains = new Set(junctions.map(junction => junction.chains).flat());
@@ -136,10 +124,12 @@ export default class Level {
             const geometry = new THREE.BufferGeometry().setFromPoints( chain.map(gp => gp.position) );
             const material = new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } );
             level.add(new THREE.Line(geometry, material));
+
+            // make splines for chains above
         }
 
         const sphereMaterial = new THREE.MeshBasicMaterial({color: 0xFFFF00});
-        for (const guidePost of Object.values(this.guidePosts)) {
+        for (const guidePost of this.guidePosts) {
             if (guidePost.chains.length === 0) {
                 const sphere = new THREE.Mesh(
                     new THREE.SphereGeometry(1),
@@ -151,25 +141,29 @@ export default class Level {
             }
         }
 
-        /*
-        for (let i = 0; i < numGuideposts; i++) {
-            const pos = levelSplinePoints[i];
-            const pointLight = new THREE.PointLight(0xFFAA88, 20);
-            pointLight.position.copy(pos);
-            pointLight.position.y += 5;
-            levelModel.add(pointLight);
-        }
-        */
-        const average = levelSplinePoints.reduce(
-            (sum, pos) => {
-                sum.add(pos);
+        const average = this.guidePosts.reduce(
+            (sum, guidePost) => {
+                sum.add(guidePost.position);
                 return sum;
             },
             new THREE.Vector3()
-        ).multiplyScalar( 1 / numGuideposts );
+        ).multiplyScalar( 1 / points.length );
 
         this.debugOrbitControls.target.copy( average );
 
         scene.add(level);
+    }
+
+    placeShip(ship) {
+        // TODO:
+        // pick a random chain and place the ship along its spline at random position
+        // Persist chain, direction, and percent along chain on ship
+    }
+
+    advanceShip(ship, speed) {
+        // TODO:
+        // Grab persisted chain and percent along chain on the ship
+        // increment percent by speed
+        // if percent is now > 100%, randomly pick a neighboring chain
     }
 }

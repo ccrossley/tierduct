@@ -5,6 +5,7 @@ export default class GameScreen {
 	domElement;
 	renderer;
 	renderContext = null;
+	updateFn;
 
 	constructor() {
 		this.renderer = new THREE.WebGLRenderer( { antialias: true } );
@@ -17,7 +18,7 @@ export default class GameScreen {
 		const animate = (time) => {
 			if (this.renderContext != null) {
 				this.renderer.render( this.renderContext.scene, this.renderContext.camera );
-				this.renderContext.update?.();
+				this.updateFn?.();
 			}
 			requestAnimationFrame(animate);
 		};
