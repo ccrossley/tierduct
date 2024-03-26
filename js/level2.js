@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import {loadGLTF} from "./utils.js";
 
 let levelData;
 
@@ -24,20 +24,32 @@ class GuidePost {
             if (scout.chains.length > 0) {
                 continue;
             }
-            const chain = [this, scout];
+            const members = [this, scout];
             while (scout.neighbors.size <= 2) {
                 findNewNeighbor: for (const neighbor of scout.neighbors) {
-                    if (!chain.includes(neighbor)) {
+                    if (!members.includes(neighbor)) {
                         scout = neighbor;
                         break findNewNeighbor;
                     }
                 }
-                chain.push(scout);
+                members.push(scout);
             }
-            for (const member of chain) {
+
+            const chain = new Chain(members);
+
+            for (const member of members) {
                 member.chains.push(chain);
             }
         }
+    }
+}
+
+class Chain {
+    guidePosts;
+    spline;
+    constructor(guideposts) {
+        this.guidePosts = guideposts;
+        this.spline = new THREE.CatmullRomCurve3( this.guidePosts.map(gp => gp.position) );
     }
 }
 
@@ -46,6 +58,9 @@ export default class Level {
     debugRenderContext;
     debugOrbitControls;
     guidePosts = [];
+    chains = [];
+    level;
+    ready;
 
     constructor(orbitMouseTarget) {
         const scene = new THREE.Scene();
@@ -63,16 +78,14 @@ export default class Level {
 
         this.debugRenderContext = { scene, camera };
 
-        this.loadLevel();
+        this.ready = this.loadLevel();
     }
 
     async loadLevel() {
 
         const { scene } = this.debugRenderContext;
 
-        let level = new THREE.Group();
-
-        const loadGLTF = (url) => new Promise(resolve => new GLTFLoader().load(url, resolve));
+        this.level = new THREE.Group();
 
         const levelModel = (await loadGLTF("houdini/export/combined_non_linear_path_looped.gltf")).scene;
 
@@ -87,7 +100,7 @@ export default class Level {
                 transparent: true,
                 opacity: 0.25
             });
-            level.add(mesh)
+            this.level.add(mesh)
         }
 
         if (levelData == null) {
@@ -116,16 +129,14 @@ export default class Level {
         const junctions = this.guidePosts.filter(gp => gp.neighbors.size > 2);
         junctions.forEach(junction => junction.findChains());
 
-        const allChains = new Set(junctions.map(junction => junction.chains).flat());
+        this.chains = Array.from(new Set(junctions.map(junction => junction.chains).flat()));
 
-        console.log(allChains);
-
-        for (const chain of allChains) {
-            const geometry = new THREE.BufferGeometry().setFromPoints( chain.map(gp => gp.position) );
+        for (const chain of this.chains) {
+            const geometry = new THREE.BufferGeometry().setFromPoints( chain.guidePosts.map(gp => gp.position) );
             const material = new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } );
-            level.add(new THREE.Line(geometry, material));
+            this.level.add(new THREE.Line(geometry, material));
 
-            // make splines for chains above
+
         }
 
         const sphereMaterial = new THREE.MeshBasicMaterial({color: 0xFFFF00});
@@ -137,7 +148,7 @@ export default class Level {
                 );
 
                 sphere.position.copy(guidePost.position);
-                level.add(sphere);
+                this.level.add(sphere);
             }
         }
 
@@ -151,19 +162,40 @@ export default class Level {
 
         this.debugOrbitControls.target.copy( average );
 
-        scene.add(level);
+        scene.add(this.level);
     }
 
-    placeShip(ship) {
-        // TODO:
-        // pick a random chain and place the ship along its spline at random position
-        // Persist chain, direction, and percent along chain on ship
+    createShipLocation() {
+        const chainIndex = Math.floor(Math.random() * this.chains.length);
+
+        const percent = Math.random();
+        const direction = Math.random() > 0.5 ? -1 : 1;
+        const group = new THREE.Group()
+
+        this.level.add(group);
+
+        const location = {
+            chainIndex, percent, direction, group
+        };
+
+        this.advanceShipLocation(location);
+
+        return location;
     }
 
-    advanceShip(ship, speed) {
+    advanceShipLocation(location, speed = 0) {
+        const chain = this.chains[location.chainIndex];
+
+        location.percent += speed;
+        //TODO: account for different lengths of chain
+        location.percent = location.percent % 1;  //TODO: swap chains at end of chain
+        location.group.position.copy(chain.spline.getPointAt(location.percent));
+
+        let goalPercent = location.percent + speed;
+        goalPercent = goalPercent % 1;
+        location.group.lookAt(chain.spline.getPointAt(goalPercent));
+
         // TODO:
-        // Grab persisted chain and percent along chain on the ship
-        // increment percent by speed
         // if percent is now > 100%, randomly pick a neighboring chain
     }
 }

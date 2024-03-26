@@ -1,6 +1,7 @@
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as THREE from 'three'
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+import {loadGLTF} from "./utils.js";
 
 export default class Level {
 
@@ -31,9 +32,6 @@ export default class Level {
 		const { scene } = this.debugRenderContext;
 
 		let level = new THREE.Group();
-
-
-		const loadGLTF = (url) => new Promise(resolve => new GLTFLoader().load(url, resolve));
 
 		const levelModel = (await loadGLTF("houdini/export/level_geom.gltf")).scene.children[0];
 		level.add(levelModel);

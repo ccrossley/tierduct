@@ -5,23 +5,24 @@ export default class Racer {
 	id;
 	level;
 	ship;
+	location;
 
-	constructor(id) {
+	constructor(id, ship) {
 		this.id = id;
+		this.ship = ship;
+
+		console.log(ship)
+
+		this.ship.scale.set(10, 10, 10);
 	}
 
 	loadIntoLevel(level) {
 		this.level = level;
-
-		this.ship = new THREE.Mesh(
-			new THREE.SphereGeometry(2),
-			new THREE.MeshBasicMaterial({color: Math.random() * 0xFFFFFF})
-		);
-
-		this.level.placeShip(this.ship);
+		this.location = this.level.createShipLocation();
+		this.location.group.add(this.ship);
 	}
 
 	update() {
-		this.level.advanceShip(this.ship, 0.01);
+		this.level.advanceShipLocation(this.location, 0.01);
 	}
 }
