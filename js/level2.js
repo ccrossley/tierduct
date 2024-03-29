@@ -98,7 +98,6 @@ export default class Level {
 
         for (const levelChild of levelModel.children) {
             const mesh = levelChild.children[0];
-            mesh.geometry.computeVertexNormals();
             mesh.material = new THREE.MeshStandardMaterial({
                 color: new THREE.Color(
                     0.5 + 0.5 * Math.random(),
