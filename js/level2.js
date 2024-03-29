@@ -98,18 +98,24 @@ export default class Level {
 
         for (const levelChild of levelModel.children) {
             const mesh = levelChild.children[0];
-            mesh.material = new THREE.MeshBasicMaterial({
+            mesh.geometry.computeVertexNormals();
+            mesh.material = new THREE.MeshStandardMaterial({
                 color: new THREE.Color(
                     0.5 + 0.5 * Math.random(),
                     0.5 + 0.5 * Math.random(),
                     0.5 + 0.5 * Math.random()
                 ),
-                transparent: true,
                 side: THREE.DoubleSide,
-                opacity: 0.25
+                roughness: 1,
             });
             this.level.add(mesh)
         }
+
+        const bigLight = new THREE.DirectionalLight(0x00fffc, 0.9)
+
+        bigLight.position.set(0, 1000, 0);
+
+        this.level.add(bigLight);
 
         if (levelData == null) {
             levelData = await (await fetch('../houdini/export/level_path_data.json')).json();
@@ -179,6 +185,12 @@ export default class Level {
         const percent = Math.random();
         const direction = Math.random() > 0.5 ? -1 : 1;
         const group = new THREE.Group();
+
+        const racerPointLight = new THREE.PointLight(0xFFFFFF, 50);
+        racerPointLight.position.z += 30;
+        racerPointLight.position.y -= 5;
+
+        group.add(racerPointLight);
 
         this.level.add(group);
 
