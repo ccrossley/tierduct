@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import {loadGLTF} from "./utils.js";
+import {loadGLTF, clamp01, modulo} from "./utils.js";
 
 let levelData;
 
@@ -46,10 +46,16 @@ class GuidePost {
 
 class Chain {
     guidePosts;
+    start;
+    end;
     spline;
+    length;
     constructor(guideposts) {
         this.guidePosts = guideposts;
         this.spline = new THREE.CatmullRomCurve3( this.guidePosts.map(gp => gp.position) );
+        this.end =  this.guidePosts[this.guidePosts.length - 1];
+        this.start = this.guidePosts[0];
+        this.length = this.spline.getLength();
     }
 }
 
@@ -57,6 +63,7 @@ export default class Level {
 
     debugRenderContext;
     debugOrbitControls;
+
     guidePosts = [];
     chains = [];
     level;
@@ -98,6 +105,7 @@ export default class Level {
                     0.5 + 0.5 * Math.random()
                 ),
                 transparent: true,
+                side: THREE.DoubleSide,
                 opacity: 0.25
             });
             this.level.add(mesh)
@@ -170,13 +178,11 @@ export default class Level {
 
         const percent = Math.random();
         const direction = Math.random() > 0.5 ? -1 : 1;
-        const group = new THREE.Group()
+        const group = new THREE.Group();
 
         this.level.add(group);
 
-        const location = {
-            chainIndex, percent, direction, group
-        };
+        const location = new PathLocation(this.chains[chainIndex], percent, direction, group);
 
         this.advanceShipLocation(location);
 
@@ -184,18 +190,57 @@ export default class Level {
     }
 
     advanceShipLocation(location, speed = 0) {
-        const chain = this.chains[location.chainIndex];
+        location.advance(speed);
 
-        location.percent += speed;
+        location.group.position.copy(location.chain.spline.getPointAt(location.percent));
+
+        let goalPercent = location.percent + (speed * location.direction);
+
+        location.group.lookAt(location.chain.spline.getPointAt(clamp01(goalPercent)));
+    }
+}
+
+class PathLocation {
+    chain;
+    percent;
+    direction;
+    group;
+
+    constructor(chain, percent, direction, group) {
+        this.chain = chain;
+        this.percent = percent;
+        this.direction = direction;
+        this.group = group;
+    }
+
+    advance = (speed) => {
+
         //TODO: account for different lengths of chain
-        location.percent = location.percent % 1;  //TODO: swap chains at end of chain
-        location.group.position.copy(chain.spline.getPointAt(location.percent));
 
-        let goalPercent = location.percent + speed;
-        goalPercent = goalPercent % 1;
-        location.group.lookAt(chain.spline.getPointAt(goalPercent));
+        this.percent = this.percent + (speed * this.direction) * this.chain.length;
+        let activeChain = this.chain;
+        let currentGuidePost;
+        if (this.percent >= 1) {
+            //last index of guideposts (which is always a junction) then randomize on chains
+            currentGuidePost = activeChain.end;
+        }else if(this.percent <= 0) {
+            currentGuidePost = activeChain.start;
+        } else {
+            return;
+        }
 
-        // TODO:
-        // if percent is now > 100%, randomly pick a neighboring chain
+        let nextChains = currentGuidePost.chains.filter((chain) => chain !== activeChain);
+
+        this.chain = nextChains[Math.floor(Math.random() * nextChains.length)];
+
+        if (currentGuidePost === this.chain.start) {
+            this.direction = 1;
+            this.percent = 0;
+        } else if (currentGuidePost === this.chain.end) {
+            this.direction = -1;
+            this.percent = 1;
+        } else {
+            throw new Error("DICKS");
+        }
     }
 }

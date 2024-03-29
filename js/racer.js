@@ -6,14 +6,19 @@ export default class Racer {
 	level;
 	ship;
 	location;
+	speed;
 
 	constructor(id, ship) {
 		this.id = id;
-		this.ship = ship;
+		this.ship = ship.clone(true);
+
+		this.speed = Math.random() * 0.5 + 0.25;
+
+		this.speed *= 0.0001;
 
 		console.log(ship)
 
-		this.ship.scale.set(10, 10, 10);
+		//this.ship.scale.set(10, 10, 10);
 	}
 
 	loadIntoLevel(level) {
@@ -23,6 +28,6 @@ export default class Racer {
 	}
 
 	update() {
-		this.level.advanceShipLocation(this.location, 0.01);
+		this.level.advanceShipLocation(this.location, this.speed);
 	}
 }

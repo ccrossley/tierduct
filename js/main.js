@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import GameScreen from "./gamescreen.js";
 import { keysDown } from "./keyboard.js";
 import Racer from "./racer.js";
@@ -17,10 +18,11 @@ console.log("allShips:", ships, ships.length);
 
 await level.ready;
 
-const numRacers = ships.length;
+const numRacers = 128;
 const racers = Array(numRacers).fill().map((_, i) => {
-	console.log("ship:", i, ships[i]);
-	const racer = new Racer(i, ships[i]);
+	const shipIndex = i % ships.length;
+	console.log("ship:", i, ships[shipIndex]);
+	const racer = new Racer(i, ships[shipIndex]);
 	racer.loadIntoLevel(level);
 	return racer;
 });
@@ -31,3 +33,14 @@ gameScreen.updateFn = () => {
 		racer.update();
 	}
 }
+
+const playerRacer = racers[0];
+
+const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
+camera.position.z = -10;
+//camera.position.y = 0.5;
+camera.rotation.y = Math.PI;
+
+playerRacer.ship.add(camera);
+gameScreen.renderContext = {...level.debugRenderContext, camera};
+
