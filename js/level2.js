@@ -145,23 +145,53 @@ export default class Level {
         this.chains = Array.from(new Set(junctions.map(junction => junction.chains).flat()));
 
         for (const chain of this.chains) {
-            const geometry = new THREE.BufferGeometry().setFromPoints( chain.guidePosts.map(gp => gp.position) );
+            const displayedSpline = new THREE.CatmullRomCurve3( chain.guidePosts.slice(1, -1).map(gp => gp.position) );
+            const geometry = new THREE.BufferGeometry().setFromPoints( displayedSpline.getPoints(60) );
             const material = new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } );
             this.level.add(new THREE.Line(geometry, material));
-
-
         }
 
         const sphereMaterial = new THREE.MeshBasicMaterial({color: 0xFFFF00});
         for (const guidePost of this.guidePosts) {
-            if (guidePost.chains.length === 0) {
-                const sphere = new THREE.Mesh(
-                    new THREE.SphereGeometry(1),
-                    sphereMaterial
-                );
+            if (guidePost.chains.length > 0) {
+                continue;
+            }
+            const sphere = new THREE.Mesh(
+                new THREE.SphereGeometry(1),
+                sphereMaterial
+            );
 
-                sphere.position.copy(guidePost.position);
-                this.level.add(sphere);
+            sphere.position.copy(guidePost.position);
+            this.level.add(sphere);
+        }
+
+        for (const guidePost of this.guidePosts) {
+            if (guidePost.chains.length > 2) {
+                const numChains = guidePost.chains.length;
+                for (let i = 0; i < numChains; i++) {
+                    for (let j = i + 1; j < numChains; j++) {
+                        const chainEnds = guidePost.chains.map(chain => {
+                            let guidePosts = chain.guidePosts.slice();
+                            if (guidePosts[0] !== guidePost) {
+                                guidePosts.reverse();
+                            }
+                            return guidePosts[1]; // Try changing this value to smooth the ramps
+                        });
+
+                        const rampGuidePosts = [
+                            chainEnds[i],
+                            guidePost,
+                            chainEnds[j],
+                        ];
+
+                        const color = Math.floor(0xFFFFFF * Math.random());
+                        const spline = new THREE.QuadraticBezierCurve3( ...rampGuidePosts.map(gp => gp.position) );
+                        const geometry = new THREE.BufferGeometry().setFromPoints( spline.getPoints(20) );
+                        const material = new THREE.LineBasicMaterial( { color } );
+                        this.level.add(new THREE.Line(geometry, material));
+                    }
+                }
+
             }
         }
 
