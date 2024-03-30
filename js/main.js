@@ -42,5 +42,11 @@ camera.position.z = -10;
 camera.rotation.y = Math.PI;
 
 playerRacer.ship.add(camera);
+
+const racerPointLight = new THREE.PointLight(0xFFFFFF, 50);
+racerPointLight.position.z += 30;
+racerPointLight.position.y -= 5;
+playerRacer.ship.add(racerPointLight);
+
 gameScreen.renderContext = {...level.debugRenderContext, camera};
 

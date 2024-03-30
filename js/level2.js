@@ -185,11 +185,11 @@ export default class Level {
         const direction = Math.random() > 0.5 ? -1 : 1;
         const group = new THREE.Group();
 
-        const racerPointLight = new THREE.PointLight(0xFFFFFF, 50);
-        racerPointLight.position.z += 30;
-        racerPointLight.position.y -= 5;
+        // const racerPointLight = new THREE.PointLight(0xFFFFFF, 50);
+        // racerPointLight.position.z += 30;
+        // racerPointLight.position.y -= 5;
 
-        group.add(racerPointLight);
+        // group.add(racerPointLight);
 
         this.level.add(group);
 
