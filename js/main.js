@@ -3,7 +3,7 @@ import GameScreen from "./gamescreen.js";
 import { keysDown } from "./keyboard.js";
 import Racer from "./racer.js";
 import Level from "./level2.js";
-import {loadGLTF} from "./utils.js";
+import {loadGLTF, clamp01} from "./utils.js";
 
 const container = document.body;
 const gameScreen = new GameScreen();
@@ -29,6 +29,15 @@ const racers = Array(numRacers).fill().map((_, i) => {
 
 gameScreen.updateFn = () => {
 	level.debugOrbitControls.update();
+
+	if (keysDown.get("ArrowUp")) {
+		playerRacer.speed = clamp01(playerRacer.speed + 0.001);
+	} else if (keysDown.get("ArrowDown")) {
+		playerRacer.speed = clamp01(playerRacer.speed - 0.001);
+	} else {
+		playerRacer.speed *= 0.999;
+	}
+
 	for (const racer of racers) {
 		racer.update();
 	}

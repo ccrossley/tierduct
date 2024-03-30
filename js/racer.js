@@ -14,8 +14,6 @@ export default class Racer {
 
 		this.speed = Math.random() * 0.5 + 0.25;
 
-		this.speed *= 0.0001;
-
 		console.log(ship)
 
 		//this.ship.scale.set(10, 10, 10);

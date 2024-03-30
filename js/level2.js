@@ -228,7 +228,7 @@ class PathLocation {
 
         //TODO: account for different lengths of chain
 
-        this.percent = this.percent + (speed * this.direction) * this.chain.length;
+        this.percent = this.percent + (speed * this.direction) / this.chain.length;
         let activeChain = this.chain;
         let currentGuidePost;
         if (this.percent >= 1) {
