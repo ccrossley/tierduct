@@ -205,7 +205,7 @@ export default class Level {
 
         location.group.position.copy(location.chain.spline.getPointAt(location.percent));
 
-        let goalPercent = location.percent + (speed * location.direction);
+        let goalPercent = location.percent + (0.01 * location.direction);
 
         location.group.lookAt(location.chain.spline.getPointAt(clamp01(goalPercent)));
     }

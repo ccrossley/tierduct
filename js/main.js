@@ -31,9 +31,9 @@ gameScreen.updateFn = () => {
 	level.debugOrbitControls.update();
 
 	if (keysDown.get("ArrowUp")) {
-		playerRacer.speed = clamp01(playerRacer.speed + 0.001);
+		playerRacer.speed = clamp01(playerRacer.speed + 0.1);
 	} else if (keysDown.get("ArrowDown")) {
-		playerRacer.speed = clamp01(playerRacer.speed - 0.001);
+		playerRacer.speed = clamp01(playerRacer.speed - 0.1);
 	} else {
 		playerRacer.speed *= 0.999;
 	}
