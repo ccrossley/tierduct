@@ -5,13 +5,11 @@ import {loadGLTF, clamp01, modulo} from "./utils.js";
 let levelData;
 
 class GuidePost {
-    index;
     position;
     neighbors = new Set();
     chains = [];
 
-    constructor(index, position) {
-        this.index = index;
+    constructor(position) {
         this.position = position;
     }
 
@@ -50,9 +48,15 @@ class Chain {
     end;
     spline;
     length;
-    constructor(guideposts) {
-        this.guidePosts = guideposts;
-        this.spline = new THREE.CatmullRomCurve3( this.guidePosts.map(gp => gp.position) );
+    startRamps = [];
+    endRamps = [];
+
+    constructor(guidePosts, isBezier = false) {
+        this.guidePosts = guidePosts;
+        const positions = guidePosts.map(gp => gp.position);
+        this.spline = isBezier
+            ? new THREE.QuadraticBezierCurve3(...positions)
+            : new THREE.CatmullRomCurve3(positions);
         this.end =  this.guidePosts[this.guidePosts.length - 1];
         this.start = this.guidePosts[0];
         this.length = this.spline.getLength();
@@ -64,7 +68,6 @@ export default class Level {
     debugRenderContext;
     debugOrbitControls;
 
-    guidePosts = [];
     chains = [];
     level;
     ready;
@@ -123,79 +126,66 @@ export default class Level {
         const points = levelData.points;
         const sectionEdges = levelData.edges;
 
-        this.guidePosts = levelData.points
-            .map((data, index) => new GuidePost(index, new THREE.Vector3(...data)));
-
-        console.log("Section Edges:", sectionEdges);
+        const guidePosts = levelData.points.map((data) => new GuidePost(new THREE.Vector3(...data)));
 
         const debugPathLines = [];
 
         for (const sectionEdge of sectionEdges) {
-            const gp0 = this.guidePosts[sectionEdge[0]];
-            const gp1 = this.guidePosts[sectionEdge[1]];
+            const gp0 = guidePosts[sectionEdge[0]];
+            const gp1 = guidePosts[sectionEdge[1]];
             gp0.addNeighbor(gp1);
             gp1.addNeighbor(gp0);
         }
 
-        console.log("Guide Posts:", this.guidePosts);
-
-        const junctions = this.guidePosts.filter(gp => gp.neighbors.size > 2);
+        const junctions = guidePosts.filter(gp => gp.neighbors.size > 2);
         junctions.forEach(junction => junction.findChains());
+
+        const baseChains = Array.from(new Set(junctions.map(junction => junction.chains).flat()));
+        for (const junction of junctions) {
+            const chainEnds = junction.chains.map(chain => {
+                let guidePosts = chain.guidePosts.slice();
+                if (guidePosts[0] !== junction) {
+                    guidePosts.reverse();
+                }
+                return guidePosts[1]; // Try changing this value to smooth the ramps
+            });
+            const numChains = junction.chains.length;
+
+            for (let i = 0; i < numChains; i++) {
+                for (let j = i + 1; j < numChains; j++) {
+                    const ramp = new Chain([chainEnds[i], junction, chainEnds[j]], true);
+                    this.level.add(new THREE.Line(
+                        new THREE.BufferGeometry().setFromPoints( ramp.spline.getPoints(20) ),
+                        new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } )
+                    ));
+                }
+            }
+        }
+
+        // const sphereMaterial = new THREE.MeshBasicMaterial({color: 0xFFFF00});
+        // for (const guidePost of guidePosts) {
+        //     if (guidePost.chains.length > 0) {
+        //         continue;
+        //     }
+        //     const sphere = new THREE.Mesh(
+        //         new THREE.SphereGeometry(1),
+        //         sphereMaterial
+        //     );
+
+        //     sphere.position.copy(guidePost.position);
+        //     this.level.add(sphere);
+        // }
 
         this.chains = Array.from(new Set(junctions.map(junction => junction.chains).flat()));
 
-        for (const chain of this.chains) {
-            const displayedSpline = new THREE.CatmullRomCurve3( chain.guidePosts.slice(1, -1).map(gp => gp.position) );
-            const geometry = new THREE.BufferGeometry().setFromPoints( displayedSpline.getPoints(60) );
-            const material = new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } );
-            this.level.add(new THREE.Line(geometry, material));
+        for (const {spline} of this.chains) {
+            this.level.add(new THREE.Line(
+                new THREE.BufferGeometry().setFromPoints( spline.getPoints(15 * spline.getLength()) ),
+                new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } )
+            ));
         }
 
-        const sphereMaterial = new THREE.MeshBasicMaterial({color: 0xFFFF00});
-        for (const guidePost of this.guidePosts) {
-            if (guidePost.chains.length > 0) {
-                continue;
-            }
-            const sphere = new THREE.Mesh(
-                new THREE.SphereGeometry(1),
-                sphereMaterial
-            );
-
-            sphere.position.copy(guidePost.position);
-            this.level.add(sphere);
-        }
-
-        for (const guidePost of this.guidePosts) {
-            if (guidePost.chains.length > 2) {
-                const numChains = guidePost.chains.length;
-                for (let i = 0; i < numChains; i++) {
-                    for (let j = i + 1; j < numChains; j++) {
-                        const chainEnds = guidePost.chains.map(chain => {
-                            let guidePosts = chain.guidePosts.slice();
-                            if (guidePosts[0] !== guidePost) {
-                                guidePosts.reverse();
-                            }
-                            return guidePosts[1]; // Try changing this value to smooth the ramps
-                        });
-
-                        const rampGuidePosts = [
-                            chainEnds[i],
-                            guidePost,
-                            chainEnds[j],
-                        ];
-
-                        const color = Math.floor(0xFFFFFF * Math.random());
-                        const spline = new THREE.QuadraticBezierCurve3( ...rampGuidePosts.map(gp => gp.position) );
-                        const geometry = new THREE.BufferGeometry().setFromPoints( spline.getPoints(20) );
-                        const material = new THREE.LineBasicMaterial( { color } );
-                        this.level.add(new THREE.Line(geometry, material));
-                    }
-                }
-
-            }
-        }
-
-        const average = this.guidePosts.reduce(
+        const average = guidePosts.reduce(
             (sum, guidePost) => {
                 sum.add(guidePost.position);
                 return sum;
@@ -209,8 +199,6 @@ export default class Level {
     }
 
     createShipLocation() {
-        const chainIndex = Math.floor(Math.random() * this.chains.length);
-
         const percent = Math.random();
         const direction = Math.random() > 0.5 ? -1 : 1;
         const group = new THREE.Group();
@@ -223,7 +211,8 @@ export default class Level {
 
         this.level.add(group);
 
-        const location = new PathLocation(this.chains[chainIndex], percent, direction, group);
+        const randomChain = this.chains[Math.floor(Math.random() * this.chains.length)]
+        const location = new PathLocation(randomChain, percent, direction, group);
 
         this.advanceShipLocation(location);
 
@@ -262,7 +251,7 @@ class PathLocation {
         let activeChain = this.chain;
         let currentGuidePost;
         if (this.percent >= 1) {
-            //last index of guideposts (which is always a junction) then randomize on chains
+            //last index of guidePosts (which is always a junction) then randomize on chains
             currentGuidePost = activeChain.end;
         }else if(this.percent <= 0) {
             currentGuidePost = activeChain.start;
