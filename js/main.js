@@ -14,14 +14,12 @@ gameScreen.renderContext = level.debugRenderContext;
 
 const ships = (await loadGLTF("houdini/export/ships/all_ships.gltf")).scene.children.slice();
 
-console.log("allShips:", ships, ships.length);
-
 await level.ready;
 
 const numRacers = 128;
 const racers = Array(numRacers).fill().map((_, i) => {
 	const shipIndex = i % ships.length;
-	console.log("ship:", i, ships[shipIndex]);
+
 	const racer = new Racer(i, ships[shipIndex]);
 	racer.loadIntoLevel(level);
 	return racer;
