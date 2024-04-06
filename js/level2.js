@@ -44,21 +44,30 @@ class GuidePost {
 
 class Chain {
     guidePosts;
-    start;
-    end;
     spline;
     length;
-    startRamps = [];
-    endRamps = [];
+    startChoices = [];
+    endChoices = [];
+    isBezier;
 
     constructor(guidePosts, isBezier = false) {
-        this.guidePosts = guidePosts;
-        const positions = guidePosts.map(gp => gp.position);
-        this.spline = isBezier
+        this.isBezier = isBezier;
+        this.guidePosts = guidePosts.slice();
+    }
+
+    get start() {
+        return this.guidePosts[0];
+    }
+
+    get end() {
+        return this.guidePosts[this.guidePosts.length - 1];
+    }
+
+    makeSpline() {
+        const positions = this.guidePosts.map(gp => gp.position);
+        this.spline = this.isBezier
             ? new THREE.QuadraticBezierCurve3(...positions)
             : new THREE.CatmullRomCurve3(positions);
-        this.end =  this.guidePosts[this.guidePosts.length - 1];
-        this.start = this.guidePosts[0];
         this.length = this.spline.getLength();
     }
 }
@@ -140,24 +149,49 @@ export default class Level {
         const junctions = guidePosts.filter(gp => gp.neighbors.size > 2);
         junctions.forEach(junction => junction.findChains());
 
-        const baseChains = Array.from(new Set(junctions.map(junction => junction.chains).flat()));
+        this.chains = Array.from(new Set(junctions.map(junction => junction.chains).flat()));
+
         for (const junction of junctions) {
+
             const chainEnds = junction.chains.map(chain => {
                 let guidePosts = chain.guidePosts.slice();
-                if (guidePosts[0] !== junction) {
+                if (guidePosts.start !== junction) {
                     guidePosts.reverse();
                 }
                 return guidePosts[1]; // Try changing this value to smooth the ramps
             });
-            const numChains = junction.chains.length;
 
-            for (let i = 0; i < numChains; i++) {
-                for (let j = i + 1; j < numChains; j++) {
+            const numJunctionChains = junction.chains.length;
+
+            for (let i = 0; i < numJunctionChains; i++) {
+
+                const chain1 = junction.chains[i];
+                const chain1Choices = chain1.guidePosts.start === junction
+                    ? chain1.startChoices
+                    : chain1.endChoices;
+
+                for (let j = i + 1; j < numJunctionChains; j++) {
+
+                    const chain2 = junction.chains[j];
+                    const chain2Choices = chain2.guidePosts.start === junction
+                        ? chain2.startChoices
+                        : chain2.endChoices;
+
                     const ramp = new Chain([chainEnds[i], junction, chainEnds[j]], true);
-                    this.level.add(new THREE.Line(
-                        new THREE.BufferGeometry().setFromPoints( ramp.spline.getPoints(20) ),
-                        new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } )
-                    ));
+                    chain1Choices.push(ramp);
+                    chain2Choices.push(ramp);
+                    ramp.startChoices.push(chain1);
+                    ramp.endChoices.push(chain2);
+                    this.chains.push(ramp);
+                }
+            }
+
+            // truncate the non-ramp chains
+            for (const chain of junction.chains) {
+                if (chain.start === junction) {
+                    chain.guidePosts.shift();
+                } else {
+                    chain.guidePosts.pop();
                 }
             }
         }
@@ -176,11 +210,10 @@ export default class Level {
         //     this.level.add(sphere);
         // }
 
-        this.chains = Array.from(new Set(junctions.map(junction => junction.chains).flat()));
-
-        for (const {spline} of this.chains) {
+        for (const chain of this.chains) {
+            chain.makeSpline();
             this.level.add(new THREE.Line(
-                new THREE.BufferGeometry().setFromPoints( spline.getPoints(15 * spline.getLength()) ),
+                new THREE.BufferGeometry().setFromPoints( chain.spline.getPoints(15 * chain.spline.getLength()) ),
                 new THREE.LineBasicMaterial( { color: Math.floor(0xFFFFFF * Math.random()) } )
             ));
         }
@@ -259,9 +292,8 @@ class PathLocation {
             return;
         }
 
-        let nextChains = currentGuidePost.chains.filter((chain) => chain !== activeChain);
-
-        this.chain = nextChains[Math.floor(Math.random() * nextChains.length)];
+        const choices = this.direction == -1 ? activeChain.startChoices : activeChain.endChoices;
+        this.chain = choices[Math.floor(Math.random() * choices.length)];
 
         if (currentGuidePost === this.chain.start) {
             this.direction = 1;
