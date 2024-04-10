@@ -11,6 +11,6 @@ function clamp(x, minVal, maxVal) {
 
 function clamp01(x) { return clamp(x, 0, 1)}
 
-function modulo(n, m) { return ((n % m) + m) % m }
+function modulo(n, m = 1) { return ((n % m) + m) % m }
 
 export {loadGLTF, modulo, clamp01, clamp};

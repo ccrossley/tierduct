@@ -36,6 +36,11 @@ gameScreen.updateFn = () => {
 		playerRacer.speed *= 0.999;
 	}
 
+	const locationCase = playerRacer.location.case;
+	if (locationCase != null) {
+		console.log(locationCase);
+	}
+
 	for (const racer of racers) {
 		racer.update();
 	}

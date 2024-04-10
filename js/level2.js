@@ -151,6 +151,8 @@ export default class Level {
 
         this.chains = Array.from(new Set(junctions.map(junction => junction.chains).flat()));
 
+        const truncation = 3; // Try changing this value to smooth the ramps
+
         for (const junction of junctions) {
 
             const chainEnds = junction.chains.map(chain => {
@@ -158,7 +160,7 @@ export default class Level {
                 if (chain.start !== junction) {
                     guidePosts.reverse();
                 }
-                return guidePosts[1]; // Try changing this value to smooth the ramps
+                return guidePosts[truncation];
             });
 
             const numJunctionChains = junction.chains.length;
@@ -189,9 +191,9 @@ export default class Level {
             // truncate the non-ramp chains
             for (const chain of junction.chains) {
                 if (chain.start === junction) {
-                    chain.guidePosts.shift();
+                    chain.guidePosts.splice(0, truncation);
                 } else {
-                    chain.guidePosts.pop();
+                    chain.guidePosts.splice(-truncation, truncation);
                 }
             }
         }
@@ -254,12 +256,28 @@ export default class Level {
 
     advanceShipLocation(location, speed = 0) {
         location.advance(speed);
-
         location.group.position.copy(location.chain.spline.getPointAt(location.percent));
+        let goalPercent = location.percent + (0.05 * location.direction);
+        let futurePosition;
 
-        let goalPercent = location.percent + (0.01 * location.direction);
+        location.case = null;
+        if (goalPercent > 1 || goalPercent < 0) {
+            const nextChain = location.chosenNextChain;
+            if (location.junction === nextChain.start) {
+                location.case = 1;
+                goalPercent = modulo(goalPercent);
+            } else if (location.junction === nextChain.end) {
+                location.case = 2;
+                goalPercent = 1 - modulo(goalPercent);
+            } else {
+                throw new Error("DANGER WILL ROBINSON");
+            }
+            futurePosition = nextChain.spline.getPointAt(goalPercent);
+        } else {
+            futurePosition = location.chain.spline.getPointAt(goalPercent);
+        }
 
-        location.group.lookAt(location.chain.spline.getPointAt(clamp01(goalPercent)));
+        location.group.lookAt(futurePosition);
     }
 }
 
@@ -268,41 +286,63 @@ class PathLocation {
     percent;
     direction;
     group;
+    junction;
+    choices;
+    choice;
 
     constructor(chain, percent, direction, group) {
         this.chain = chain;
         this.percent = percent;
         this.direction = direction;
         this.group = group;
+        this.junction = this.direction > 0 ? chain.end : chain.start;
+        this.#updateChoices();
     }
 
     advance = (speed) => {
 
-        //TODO: account for different lengths of chain
-
         this.percent = this.percent + (speed * this.direction) / this.chain.length;
-        let activeChain = this.chain;
-        let currentGuidePost;
-        if (this.percent >= 1) {
-            //last index of guidePosts (which is always a junction) then randomize on chains
-            currentGuidePost = activeChain.end;
-        }else if(this.percent <= 0) {
-            currentGuidePost = activeChain.start;
-        } else {
+
+        if (this.percent >= 0 && this.percent <= 1) {
             return;
         }
 
-        const choices = this.direction == -1 ? activeChain.startChoices : activeChain.endChoices;
-        this.chain = choices[Math.floor(Math.random() * choices.length)];
-
-        if (currentGuidePost === this.chain.start) {
+        this.chain = this.chosenNextChain;
+        const chain = this.chain;
+        if (this.junction === this.chain.start) {
             this.direction = 1;
             this.percent = 0;
-        } else if (currentGuidePost === this.chain.end) {
+            this.junction = this.chain.end;
+        } else if (this.junction === this.chain.end) {
             this.direction = -1;
             this.percent = 1;
+            this.junction = this.chain.start;
         } else {
             throw new Error("Current guidepost is missing from new chain");
         }
+        this.#updateChoices();
+    }
+
+    get chosenNextChain() {
+        return this.choices[this.choice];
+    }
+
+    changeDirection(newDirection) {
+        newDirection = (newDirection < 0) ? -1 : 1;
+        if (this.direction === newDirection) {
+            return;
+        }
+        this.direction = newDirection;
+        this.junction = this.direction > 0 ? chain.end : chain.start;
+        this.#updateChoices();
+    }
+
+    #updateChoices() {
+        this.choices = this.direction == -1 ? this.chain.startChoices : this.chain.endChoices;
+        this.chooseNextChain();
+    }
+
+    chooseNextChain(choice = null) {
+        this.choice = choice ?? Math.floor(Math.random() * this.choices.length);
     }
 }
