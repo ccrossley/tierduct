@@ -155,7 +155,7 @@ export default class Level {
 
             const chainEnds = junction.chains.map(chain => {
                 let guidePosts = chain.guidePosts.slice();
-                if (guidePosts.start !== junction) {
+                if (chain.start !== junction) {
                     guidePosts.reverse();
                 }
                 return guidePosts[1]; // Try changing this value to smooth the ramps
@@ -166,14 +166,14 @@ export default class Level {
             for (let i = 0; i < numJunctionChains; i++) {
 
                 const chain1 = junction.chains[i];
-                const chain1Choices = chain1.guidePosts.start === junction
+                const chain1Choices = chain1.start === junction
                     ? chain1.startChoices
                     : chain1.endChoices;
 
                 for (let j = i + 1; j < numJunctionChains; j++) {
 
                     const chain2 = junction.chains[j];
-                    const chain2Choices = chain2.guidePosts.start === junction
+                    const chain2Choices = chain2.start === junction
                         ? chain2.startChoices
                         : chain2.endChoices;
 
@@ -302,7 +302,7 @@ class PathLocation {
             this.direction = -1;
             this.percent = 1;
         } else {
-            throw new Error("DICKS");
+            throw new Error("Current guidepost is missing from new chain");
         }
     }
 }
