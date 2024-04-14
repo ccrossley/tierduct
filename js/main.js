@@ -25,6 +25,8 @@ const racers = Array(numRacers).fill().map((_, i) => {
 	return racer;
 });
 
+let spaceHit = false;
+
 gameScreen.updateFn = () => {
 	level.debugOrbitControls.update();
 
@@ -36,9 +38,26 @@ gameScreen.updateFn = () => {
 		playerRacer.speed *= 0.999;
 	}
 
-	const locationCase = playerRacer.location.case;
-	if (locationCase != null) {
-		console.log(locationCase);
+	if (keysDown.get(" ")) {
+		if (!spaceHit) {
+			playerRacer.location.changeDirection(-playerRacer.location.direction);
+
+			/*
+			const location = playerRacer.location;
+			const chainIndex = level.chains.indexOf(location.chain);
+			const newIndex = (chainIndex + 1) % level.chains.length;
+			console.log(newIndex, "/", level.chains.length);
+			location.chain = level.chains[newIndex];
+			location.percent = 0.25;
+			location.direction = -1;
+			location.junction = location.direction > 0 ? location.chain.end : location.chain.start;
+			location.updateChoices();
+			*/
+
+			spaceHit = true;
+		}
+	} else {
+		spaceHit = false;
 	}
 
 	for (const racer of racers) {

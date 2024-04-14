@@ -248,6 +248,7 @@ export default class Level {
 
         const randomChain = this.chains[Math.floor(Math.random() * this.chains.length)]
         const location = new PathLocation(randomChain, percent, direction, group);
+        location.spheres.forEach(sphere => this.level.add(sphere));
 
         this.advanceShipLocation(location);
 
@@ -257,27 +258,42 @@ export default class Level {
     advanceShipLocation(location, speed = 0) {
         location.advance(speed);
         location.group.position.copy(location.chain.spline.getPointAt(location.percent));
-        let goalPercent = location.percent + (0.05 * location.direction);
-        let futurePosition;
 
-        location.case = null;
-        if (goalPercent > 1 || goalPercent < 0) {
-            const nextChain = location.chosenNextChain;
-            if (location.junction === nextChain.start) {
-                location.case = 1;
+        const numSpheres = location.spheres.length;
+
+        for (let i = 0; i < numSpheres; i++) {
+            let goalPercent = location.percent + (0.05 * location.direction * (i + 1));
+            let futurePosition;
+
+            if (goalPercent > 1 || goalPercent < 0) {
+
+                const junction = location.junction;
+                const isChainReversed = junction === location.chain.end;
+                const isNextChainReversed = junction === location.chosenNextChain.end;
+
+                if (isChainReversed === isNextChainReversed) {
+                    goalPercent = 1 - goalPercent;
+                }
+
                 goalPercent = modulo(goalPercent);
-            } else if (location.junction === nextChain.end) {
-                location.case = 2;
-                goalPercent = 1 - modulo(goalPercent);
+
+                // TODO: convert goal percent into distance on current chain, then to distance on next chain, then to percent on next chain
+                // TODO: explain why this is annoying ( we don't have a next next chain, so we need to clamp to next chain, and consider length ratio )
+                // Craig's idea: instead of using a modulo, we should decide on a direction +/- and then set the distance along the next chain in that direction (clamped to the terminus of the next chain)
+
+                futurePosition = location.chosenNextChain.spline.getPointAt(goalPercent);
             } else {
-                throw new Error("DANGER WILL ROBINSON");
+                futurePosition = location.chain.spline.getPointAt(goalPercent);
             }
-            futurePosition = nextChain.spline.getPointAt(goalPercent);
-        } else {
-            futurePosition = location.chain.spline.getPointAt(goalPercent);
+
+            location.spheres[i].position.copy(futurePosition);
+
+            if (i === 0) {
+                location.group.lookAt(futurePosition);
+            }
         }
 
-        location.group.lookAt(futurePosition);
+
     }
 }
 
@@ -289,6 +305,7 @@ class PathLocation {
     junction;
     choices;
     choice;
+    sphere;
 
     constructor(chain, percent, direction, group) {
         this.chain = chain;
@@ -297,6 +314,12 @@ class PathLocation {
         this.group = group;
         this.junction = this.direction > 0 ? chain.end : chain.start;
         this.#updateChoices();
+
+        const sphereMaterial = new THREE.MeshBasicMaterial({color: 0xFFFF00});
+        this.spheres = Array(20).fill().map(_ => new THREE.Mesh(
+            new THREE.SphereGeometry(0.5),
+            sphereMaterial
+        ));
     }
 
     advance = (speed) => {
@@ -333,7 +356,7 @@ class PathLocation {
             return;
         }
         this.direction = newDirection;
-        this.junction = this.direction > 0 ? chain.end : chain.start;
+        this.junction = this.direction > 0 ? this.chain.end : this.chain.start;
         this.#updateChoices();
     }
 
