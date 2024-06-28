@@ -49,10 +49,12 @@ class Chain {
     startChoices = [];
     endChoices = [];
     isBezier;
+    radius;
 
-    constructor(guidePosts, isBezier = false) {
+    constructor(guidePosts, isBezier = false, radius = 5) {
         this.isBezier = isBezier;
         this.guidePosts = guidePosts.slice();
+        this.radius = radius;
     }
 
     get start() {
@@ -111,22 +113,39 @@ export default class Level {
         for (const levelChild of levelModel.children) {
             const mesh = levelChild.children[0];
             mesh.material = new THREE.MeshStandardMaterial({
-                color: new THREE.Color(
+                /*color: new THREE.Color(
                     0.5 + 0.5 * Math.random(),
                     0.5 + 0.5 * Math.random(),
                     0.5 + 0.5 * Math.random()
-                ),
+                ),*/
                 side: THREE.DoubleSide,
                 roughness: 1,
             });
             this.level.add(mesh)
         }
 
-        const bigLight = new THREE.DirectionalLight(0x00fffc, 0.9)
+        let bigLightPositions = [
+          [1, 0, 0],
+          [-1, 0, 0],
+          [0, 1, 0],
+          [0, -1, 0],
+          [0, 0, 1],
+          [0, 0, -1],
+        ];
 
-        bigLight.position.set(0, 1000, 0);
+        bigLightPositions = bigLightPositions.map(pos => pos.map(x => x * 1000));
 
-        this.level.add(bigLight);
+        const bigLightColors = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF];
+
+        for (let i = 0; i < bigLightPositions.length; i++) {
+            const bigLight= new THREE.DirectionalLight(bigLightColors[i], 0.9); //new THREE.SpotLight(bigLightColors[i], 5, 1000)
+            bigLight.angle = Math.PI/2;
+            bigLight.decay = 0;
+            bigLight.penumbra = 0.5;
+            bigLight.position.set(...bigLightPositions[i]);
+            bigLight.lookAt(0, 0, 0);
+            this.level.add(bigLight);
+        }
 
         if (levelData == null) {
             levelData = await (await fetch('../houdini/export/level_path_data.json')).json();
@@ -142,6 +161,7 @@ export default class Level {
         for (const sectionEdge of sectionEdges) {
             const gp0 = guidePosts[sectionEdge[0]];
             const gp1 = guidePosts[sectionEdge[1]];
+
             gp0.addNeighbor(gp1);
             gp1.addNeighbor(gp0);
         }
@@ -179,7 +199,7 @@ export default class Level {
                         ? chain2.startChoices
                         : chain2.endChoices;
 
-                    const ramp = new Chain([chainEnds[i], junction, chainEnds[j]], true);
+                    const ramp = new Chain([chainEnds[i], junction, chainEnds[j]], true, 1);
                     chain1Choices.push(ramp);
                     chain2Choices.push(ramp);
                     ramp.startChoices.push(chain1);
@@ -236,7 +256,13 @@ export default class Level {
     createShipLocation() {
         const percent = Math.random();
         const direction = Math.random() > 0.5 ? -1 : 1;
+
         const group = new THREE.Group();
+        const tubeGroup = new THREE.Group();
+
+        group.rotation.order = "ZXY";
+
+        group.add(tubeGroup);
 
         // const racerPointLight = new THREE.PointLight(0xFFFFFF, 50);
         // racerPointLight.position.z += 30;
@@ -247,12 +273,14 @@ export default class Level {
         this.level.add(group);
 
         const randomChain = this.chains[Math.floor(Math.random() * this.chains.length)]
-        const location = new PathLocation(randomChain, percent, direction, group);
-        location.spheres.forEach(sphere => this.level.add(sphere));
+        const pathLocation = new PathLocation(randomChain, percent, direction, group);
+        const tubeLocation = new TubeLocation(0, 10, tubeGroup);
 
-        this.advanceShipLocation(location);
+        //location.spheres.forEach(sphere => this.level.add(sphere));
 
-        return location;
+        this.advanceShipLocation(pathLocation);
+
+        return {pathLocation: pathLocation, tubeLocation: tubeLocation};
     }
 
     advanceShipLocation(location, speed = 0) {
@@ -292,8 +320,36 @@ export default class Level {
                 location.group.lookAt(futurePosition);
             }
         }
+    }
+}
 
+class TubeLocation {
+    angle;
+    group;
 
+    constructor(angle, radius, group) {
+        this.angle = angle;
+        this.group = group;
+
+        this.group.position.y = -radius;
+    }
+
+    update(turnAmount, targetRadius) {
+        this.angle += turnAmount;
+
+        if (turnAmount > 0) {
+            while(this.angle < this.group.rotation.z - Math.PI) {
+                this.angle += 2*Math.PI;
+            }
+        }else{
+            while(this.angle > this.group.rotation.z + Math.PI) {
+                this.angle -= 2 * Math.PI;
+            }
+        }
+
+        this.group.position.y = THREE.MathUtils.lerp(this.group.position.y, -targetRadius, 0.025);
+        console.log(this.group.position.y, targetRadius);
+        this.group.rotation.z = THREE.MathUtils.lerp(this.group.rotation.z, this.angle, 0.1);
     }
 }
 
@@ -305,7 +361,7 @@ class PathLocation {
     junction;
     choices;
     choice;
-    sphere;
+    spheres;
 
     constructor(chain, percent, direction, group) {
         this.chain = chain;
@@ -323,7 +379,6 @@ class PathLocation {
     }
 
     advance = (speed) => {
-
         this.percent = this.percent + (speed * this.direction) / this.chain.length;
 
         if (this.percent >= 0 && this.percent <= 1) {

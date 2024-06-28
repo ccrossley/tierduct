@@ -38,6 +38,16 @@ gameScreen.updateFn = () => {
 		playerRacer.speed *= 0.999;
 	}
 
+	playerRacer.turnAmount = 0;
+
+	if (keysDown.get("ArrowLeft")) {
+		playerRacer.turnAmount += 0.1;
+	}
+
+	if (keysDown.get("ArrowRight")) {
+		playerRacer.turnAmount -= 0.1;
+	}
+
 	if (keysDown.get(" ")) {
 		if (!spaceHit) {
 			playerRacer.location.changeDirection(-playerRacer.location.direction);
@@ -69,10 +79,10 @@ const playerRacer = racers[0];
 
 const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
 camera.position.z = -10;
-//camera.position.y = 0.5;
+camera.position.y = 0;
 camera.rotation.y = Math.PI;
 
-playerRacer.ship.add(camera);
+playerRacer.location.group.add(camera);
 
 const racerPointLight = new THREE.PointLight(0xFFFFFF, 50);
 racerPointLight.position.z += 30;
