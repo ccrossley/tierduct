@@ -348,7 +348,6 @@ class TubeLocation {
         }
 
         this.group.position.y = THREE.MathUtils.lerp(this.group.position.y, -targetRadius, 0.025);
-        console.log(this.group.position.y, targetRadius);
         this.group.rotation.z = THREE.MathUtils.lerp(this.group.rotation.z, this.angle, 0.1);
     }
 }
