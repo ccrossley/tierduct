@@ -12,11 +12,14 @@ container.appendChild( gameScreen.domElement );
 const level = new Level(gameScreen.domElement);
 gameScreen.renderContext = level.debugRenderContext;
 
-const ships = (await loadGLTF("houdini/export/ships/all_ships.gltf")).scene.children.slice();
+const numRacers = 128;
+	const ships = Array(numRacers).fill().map((_, i) => {
+	return loadGLTF(`houdini/export/jelly_${i}.gltf`);
+});
+
+//const ships = (await loadGLTF("houdini/export/ships/all_ships.gltf")).scene.children.slice();
 
 await level.ready;
-
-const numRacers = 128;
 const racers = Array(numRacers).fill().map((_, i) => {
 	const shipIndex = i % ships.length;
 
