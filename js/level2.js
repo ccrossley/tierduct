@@ -51,7 +51,7 @@ class Chain {
     isBezier;
     radius;
 
-    constructor(guidePosts, isBezier = false, radius = 5) {
+    constructor(guidePosts, isBezier = false, radius = 0) {
         this.isBezier = isBezier;
         this.guidePosts = guidePosts.slice();
         this.radius = radius;
@@ -274,7 +274,7 @@ export default class Level {
 
         const randomChain = this.chains[Math.floor(Math.random() * this.chains.length)]
         const pathLocation = new PathLocation(randomChain, percent, direction, group);
-        const tubeLocation = new TubeLocation(0, 10, tubeGroup);
+        const tubeLocation = new TubeLocation((Math.random() * 180) * Math.PI / 180, 0, tubeGroup);
 
         //location.spheres.forEach(sphere => this.level.add(sphere));
 
@@ -331,7 +331,7 @@ class TubeLocation {
         this.angle = angle;
         this.group = group;
 
-        this.group.position.y = -radius;
+        //this.group.position.y = -radius; //this needs to be applied to our ship not the tubelocation
     }
 
     update(turnAmount, targetRadius) {

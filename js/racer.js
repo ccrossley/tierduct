@@ -22,7 +22,7 @@ export default class Racer {
 
 		this.turnAmount = 0;
 
-		this.ship.scale.set(0.4, 0.4, 0.4);
+		this.ship.scale.set(0.5, 0.5, 0.5);
 	}
 
 	loadIntoLevel(level) {
@@ -31,6 +31,8 @@ export default class Racer {
 
 		this.location = locations.pathLocation;
 		this.tubeLocation = locations.tubeLocation;
+
+		this.ship.position.y = -8;
 
 		this.tubeLocation.group.add(this.ship);
 	}

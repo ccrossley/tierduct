@@ -91,7 +91,7 @@ gameScreen.updateFn = (deltaTime) => {
 const playerRacer = racers[0];
 
 const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
-camera.position.z = -12;
+camera.position.z = -24;
 camera.position.y = -2;
 camera.rotation.y = Math.PI;
 
