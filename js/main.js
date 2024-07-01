@@ -12,7 +12,7 @@ container.appendChild( gameScreen.domElement );
 const level = new Level(gameScreen.domElement);
 gameScreen.renderContext = level.debugRenderContext;
 
-const numRacers = 128 * 4;
+const numRacers = 128 * 2;
 
 // const ships = (await loadGLTF("houdini/export/ships/all_ships.gltf")).scene.children.slice();
 // const jelly = (await loadGLTF("houdini/export/jelly/jelly_6.gltf")).scene;
@@ -20,24 +20,25 @@ const jellies = (await Promise.all(
 	Array(100)
 		.fill()
 		.map((_, i) => i.toString())
-		.map(i => loadGLTF(`houdini/export/jelly/jelly_${i}.gltf`))
-))
-	.map(gltf => gltf.scene);
+		.map(i => loadGLTF(`houdini/export/jelly/jelly_${i}.glb`))
+));
 
 await level.ready;
 const racers = Array(numRacers).fill().map((_, i) => {
 	// const ship = ships[i % ships.length];
 	// const ship = jelly;
-	const ship = jellies[i % jellies.length];
-	console.log(ship);
-	const racer = new Racer(i, ship);
+	const shipGLTF = jellies[i % jellies.length];
+	if (shipGLTF.animations.length === 0) {
+		console.warn("Craig!", `houdini/export/jelly/jelly_${i % jellies.length}.glb`, "has no animations!");
+	}
+	const racer = new Racer(i, shipGLTF);
 	racer.loadIntoLevel(level);
 	return racer;
 });
 
 let spaceHit = false;
 
-gameScreen.updateFn = () => {
+gameScreen.updateFn = (deltaTime) => {
 	level.debugOrbitControls.update();
 
 	if (keysDown.get("ArrowUp")) {
@@ -51,11 +52,11 @@ gameScreen.updateFn = () => {
 	playerRacer.turnAmount = 0;
 
 	if (keysDown.get("ArrowLeft")) {
-		playerRacer.turnAmount += 0.1;
+		playerRacer.turnAmount -= 0.1;
 	}
 
 	if (keysDown.get("ArrowRight")) {
-		playerRacer.turnAmount -= 0.1;
+		playerRacer.turnAmount += 0.1;
 	}
 
 	if (keysDown.get(" ")) {
@@ -80,16 +81,18 @@ gameScreen.updateFn = () => {
 		spaceHit = false;
 	}
 
+	const deltaSeconds = deltaTime / 1000;
+
 	for (const racer of racers) {
-		racer.update();
+		racer.update(deltaSeconds);
 	}
 }
 
 const playerRacer = racers[0];
 
 const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
-camera.position.z = -10;
-camera.position.y = 0;
+camera.position.z = -12;
+camera.position.y = -2;
 camera.rotation.y = Math.PI;
 
 playerRacer.location.group.add(camera);

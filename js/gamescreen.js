@@ -15,10 +15,16 @@ export default class GameScreen {
 
 		window.onresize = () => this.resize();
 
+		let lastTime = NaN;
 		const animate = (time) => {
+			let deltaTime = 0;
+			if (!isNaN(lastTime)) {
+				deltaTime = time - lastTime;
+			}
+			lastTime = time;
 			if (this.renderContext != null) {
 				this.renderer.render( this.renderContext.scene, this.renderContext.camera );
-				this.updateFn?.();
+				this.updateFn?.(deltaTime);
 			}
 			requestAnimationFrame(animate);
 		};
