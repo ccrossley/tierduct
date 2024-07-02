@@ -5,6 +5,8 @@ import Racer from "./racer.js";
 import Level from "./level2.js";
 import {loadGLTF, clamp01} from "./utils.js";
 
+import {jellyVertexShader, jellyFragmentShader} from "./shaders.js";
+
 const container = document.body;
 const gameScreen = new GameScreen();
 container.appendChild( gameScreen.domElement );
@@ -12,12 +14,12 @@ container.appendChild( gameScreen.domElement );
 const level = new Level(gameScreen.domElement);
 gameScreen.renderContext = level.debugRenderContext;
 
-const numRacers = 128;
+const numRacers = 1;
 
 // const ships = (await loadGLTF("houdini/export/ships/all_ships.gltf")).scene.children.slice();
 // const jelly = (await loadGLTF("houdini/export/jelly/jelly_6.gltf")).scene;
 const jellies = (await Promise.all(
-	Array(128)
+	Array(1)
 		.fill()
 		.map((_, i) => i.toString())
 		.map(i => loadGLTF(`houdini/export/jelly/jelly_${i}.glb`))
@@ -28,6 +30,18 @@ const racers = Array(numRacers).fill().map((_, i) => {
 	// const ship = ships[i % ships.length];
 	// const ship = jelly;
 	const shipGLTF = jellies[i % jellies.length];
+
+	const shader = new THREE.ShaderMaterial({
+		vertexShader: jellyVertexShader,
+		fragmentShader: jellyFragmentShader,
+	})
+
+	shipGLTF.scene.traverse((child) => {
+		if (child.isMesh) {
+			child.material = shader;
+		}
+	});
+
 	if (shipGLTF.animations.length === 0) {
 		console.warn("Craig!", `houdini/export/jelly/jelly_${i % jellies.length}.glb`, "has no animations!");
 	}
