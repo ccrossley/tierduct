@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import {loadGLTF, clamp01, modulo} from "./utils.js";
+import {loadGLTF, clamp01, modulo, getColorHarmony} from "./utils.js";
 
 let levelData;
 
@@ -76,6 +76,10 @@ class Chain {
 
 export default class Level {
 
+    baseColor = Math.random() * 0xFFFFFF;
+
+    lights = [];
+
     debugRenderContext;
     debugOrbitControls;
 
@@ -85,7 +89,6 @@ export default class Level {
 
     constructor(orbitMouseTarget) {
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color( 0x222222 );
 
         const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
         camera.position.set( 1000, 0, 0 );
@@ -125,27 +128,36 @@ export default class Level {
         }
 
         let bigLightPositions = [
-          [1, 0, 0],
-          [-1, 0, 0],
-          [0, 1, 0],
-          [0, -1, 0],
-          [0, 0, 1],
-          [0, 0, -1],
+            [1, 0, 0],
+            [-1, 0, 0],
+            [0, 1, 0],
+            [0, -1, 0],
+            [0, 0, 1],
+            [0, 0, -1],
+            [1, 1, 0],
+            [-1, 1, 0],
+            [1, -1, 0],
+            [-1, -1, 0],
+            [0, 1, 1],
+            [0, -1, -1]
         ];
+
 
         bigLightPositions = bigLightPositions.map(pos => pos.map(x => x * 1000));
 
-        const bigLightColors = [0xFF0000, 0x00FF00, 0x0000FF, 0xFFFF00, 0xFF00FF, 0x00FFFF];
-
-        for (let i = 0; i < bigLightPositions.length; i++) {
-            const bigLight= new THREE.DirectionalLight(bigLightColors[i], 0.9); //new THREE.SpotLight(bigLightColors[i], 5, 1000)
+        for (let i = 0; i < 8; i++) {
+            const bigLight= new THREE.DirectionalLight(0x222222, 0.75);
             bigLight.angle = Math.PI/2;
             bigLight.decay = 0;
             bigLight.penumbra = 0.5;
             bigLight.position.set(...bigLightPositions[i]);
             bigLight.lookAt(0, 0, 0);
+
+            this.lights.push(bigLight);
             this.level.add(bigLight);
         }
+
+        this.nextLightColor();
 
         if (levelData == null) {
             levelData = await (await fetch('../houdini/export/level_path_data.json')).json();
@@ -251,6 +263,18 @@ export default class Level {
         this.debugOrbitControls.target.copy( average );
 
         scene.add(this.level);
+    }
+
+    nextLightColor() {
+        const newColor = Math.random() * 0xFFFFFF;
+
+        this.debugRenderContext.scene.background = new THREE.Color(newColor);
+
+        const colors = getColorHarmony(newColor, "analogic", "hard", 0.5);
+
+        this.lights.forEach((light, i) => {
+            light.color = colors[i % colors.length];
+        });
     }
 
     createShipLocation() {
@@ -386,6 +410,7 @@ class PathLocation {
 
         this.chain = this.chosenNextChain;
         const chain = this.chain;
+
         if (this.junction === this.chain.start) {
             this.direction = 1;
             this.percent = 0;

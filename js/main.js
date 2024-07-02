@@ -12,12 +12,12 @@ container.appendChild( gameScreen.domElement );
 const level = new Level(gameScreen.domElement);
 gameScreen.renderContext = level.debugRenderContext;
 
-const numRacers = 128 * 2;
+const numRacers = 128;
 
 // const ships = (await loadGLTF("houdini/export/ships/all_ships.gltf")).scene.children.slice();
 // const jelly = (await loadGLTF("houdini/export/jelly/jelly_6.gltf")).scene;
 const jellies = (await Promise.all(
-	Array(100)
+	Array(128)
 		.fill()
 		.map((_, i) => i.toString())
 		.map(i => loadGLTF(`houdini/export/jelly/jelly_${i}.glb`))
@@ -37,6 +37,7 @@ const racers = Array(numRacers).fill().map((_, i) => {
 });
 
 let spaceHit = false;
+let cHit = false;
 
 gameScreen.updateFn = (deltaTime) => {
 	level.debugOrbitControls.update();
@@ -79,6 +80,15 @@ gameScreen.updateFn = (deltaTime) => {
 		}
 	} else {
 		spaceHit = false;
+	}
+
+	if (keysDown.get("c")) {
+		if (!cHit) {
+			level.nextLightColor();
+			cHit = true;
+		}
+	} else {
+		cHit = false;
 	}
 
 	const deltaSeconds = deltaTime / 1000;

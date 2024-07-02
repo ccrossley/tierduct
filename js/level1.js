@@ -22,7 +22,7 @@ export default class Level {
 		debugOrbitControls.enablePan = false;
 		debugOrbitControls.enableDamping = true;
 
-		this.debugRenderContext = { scene, camera, };
+		this.debugRenderContext = { scene, camera, debugOrbitControls};
 
 		this.loadLevel();
 	}
