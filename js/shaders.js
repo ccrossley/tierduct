@@ -1,13 +1,32 @@
 export const jellyVertexShader = `
+
+#include <common>
+// #include <uv_pars_vertex>
+// #include <uv2_pars_vertex>
+// #include <displacementmap_pars_vertex>
+// #include <color_pars_vertex>
+// #include <fog_pars_vertex>
+#include <morphtarget_pars_vertex>
+// #include <skinning_pars_vertex>
+// #include <shadowmap_pars_vertex>
+// #include <specularmap_pars_fragment>
+// #include <logdepthbuf_pars_vertex>
+// #include <clipping_planes_pars_vertex>
+
 attribute float _ao;
 varying float vAO;
 varying vec2 vUv;
 
 void main() {
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    #include <beginnormal_vertex>
+    #include <morphnormal_vertex>
+    #include <begin_vertex>
+    #include <morphtarget_vertex>
 
     vUv = uv;
     vAO = _ao;
+
+    gl_Position = projectionMatrix * modelViewMatrix * vec4( transformed, 1.0 );
 }
 `;
 
