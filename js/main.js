@@ -27,9 +27,6 @@ const jellies = (await Promise.all(
 
 await level.ready;
 const racers = Array(numRacers).fill().map((_, i) => {
-	// const ship = ships[i % ships.length];
-	// const ship = jelly;
-
 	let shipGLTFIndex = i;
 
 	if (i === 0) {
