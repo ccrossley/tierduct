@@ -14,12 +14,12 @@ container.appendChild( gameScreen.domElement );
 const level = new Level(gameScreen.domElement);
 gameScreen.renderContext = level.debugRenderContext;
 
-const numRacers = 1;
+const numRacers = 16;
 
 // const ships = (await loadGLTF("houdini/export/ships/all_ships.gltf")).scene.children.slice();
 // const jelly = (await loadGLTF("houdini/export/jelly/jelly_6.gltf")).scene;
 const jellies = (await Promise.all(
-	Array(1)
+	Array(32)
 		.fill()
 		.map((_, i) => i.toString())
 		.map(i => loadGLTF(`houdini/export/jelly/jelly_${i}.glb`))
@@ -29,7 +29,14 @@ await level.ready;
 const racers = Array(numRacers).fill().map((_, i) => {
 	// const ship = ships[i % ships.length];
 	// const ship = jelly;
-	const shipGLTF = jellies[i % jellies.length];
+
+	let shipGLTFIndex = i;
+
+	if (i === 0) {
+		shipGLTFIndex = Math.floor(Math.random() * jellies.length);
+	}
+
+	const shipGLTF = jellies[shipGLTFIndex % jellies.length];
 
 	const shader = new THREE.ShaderMaterial({
 		vertexShader: jellyVertexShader,
