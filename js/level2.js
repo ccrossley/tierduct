@@ -90,6 +90,9 @@ export default class Level {
     constructor(orbitMouseTarget) {
         const scene = new THREE.Scene();
 
+        //scene.fog = new THREE.FogExp2(0xFFFFFF, 0.0025);
+        scene.fog = new THREE.Fog(0x45818E, 50, 500);
+
         const camera = new THREE.PerspectiveCamera( 60, window.innerWidth / window.innerHeight, 1, 10000 );
         camera.position.set( 1000, 0, 0 );
 
@@ -111,21 +114,32 @@ export default class Level {
 
         this.level = new THREE.Group();
 
-        const levelModel = (await loadGLTF("houdini/export/combined_non_linear_path_looped.gltf")).scene;
+        const levelModel = (await loadGLTF("houdini/export/combined_non_linear_path_looped.glb")).scene;
+        console.log(levelModel);
+        /*
+        const standardMaterial = levelModel.material;
+        const physicalMaterial = new THREE.MeshPhysicalMaterial({
+            color: standardMaterial.color,
+            //map: standardMaterial.map,
+            roughness: 0.8,
+            clearcoat: 0.3,
+            clearcoatMap: standardMaterial.roughnessMap,
+            clearcoatRoughness: 0.2,
+            specularIntensityMap: standardMaterial.roughnessMap,
+            specularColorMap: standardMaterial.map,
+            normalMap: standardMaterial.normalMap,
+            normalScale: new THREE.Vector2(0.3, 0.3),
+            metalness: 0.2,
+            //emissive: new THREE.Color(0x112244),
+            //emissiveIntensity: 0.2
+            //side: THREE.DoubleSide,
+        });
 
-        for (const levelChild of levelModel.children) {
-            const mesh = levelChild.children[0];
-            mesh.material = new THREE.MeshStandardMaterial({
-                /*color: new THREE.Color(
-                    0.5 + 0.5 * Math.random(),
-                    0.5 + 0.5 * Math.random(),
-                    0.5 + 0.5 * Math.random()
-                ),*/
-                side: THREE.DoubleSide,
-                roughness: 1,
-            });
-            this.level.add(mesh)
-        }
+        levelModel.material = physicalMaterial;
+        */
+        this.level.add(levelModel);
+
+        console.log(this.level);
 
         let bigLightPositions = [
             [1, 0, 0],
@@ -277,9 +291,9 @@ export default class Level {
         });
     }
 
-    createShipLocation() {
-        const percent = Math.random();
-        const direction = Math.random() > 0.5 ? -1 : 1;
+    createShipLocation(startChain = null) {
+        const percent = startChain == null ? Math.random() : 0;
+        const direction = startChain == null ? Math.random() > 0.5 ? -1 : 1 : 0;
 
         const group = new THREE.Group();
         const tubeGroup = new THREE.Group();
@@ -296,7 +310,7 @@ export default class Level {
 
         this.level.add(group);
 
-        const randomChain = this.chains[Math.floor(Math.random() * this.chains.length)]
+        const randomChain = startChain == null ? this.chains[Math.floor(Math.random() * this.chains.length)] : this.chains[startChain % this.chains.length];
         const pathLocation = new PathLocation(randomChain, percent, direction, group);
         const tubeLocation = new TubeLocation((Math.random() * 180) * Math.PI / 180, 0, tubeGroup);
 

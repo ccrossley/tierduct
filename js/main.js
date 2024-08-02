@@ -5,21 +5,23 @@ import Racer from "./racer.js";
 import Level from "./level2.js";
 import {loadGLTF, clamp01} from "./utils.js";
 
-import {jellyVertexShader, jellyFragmentShader} from "./shaders.js";
+//import {jellyVertexShader, jellyFragmentShader} from "./shaders.js";
 
 const container = document.body;
 const gameScreen = new GameScreen();
 container.appendChild( gameScreen.domElement );
 
+const stoppedDebug = true;
+
 const level = new Level(gameScreen.domElement);
 gameScreen.renderContext = level.debugRenderContext;
 
-const numRacers = 16;
+const numRacers = 32;
 
 // const ships = (await loadGLTF("houdini/export/ships/all_ships.gltf")).scene.children.slice();
 // const jelly = (await loadGLTF("houdini/export/jelly/jelly_6.gltf")).scene;
 const jellies = (await Promise.all(
-	Array(32)
+	Array(numRacers)
 		.fill()
 		.map((_, i) => i.toString())
 		.map(i => loadGLTF(`houdini/export/jelly/jelly_${i}.glb`))
@@ -34,22 +36,53 @@ const racers = Array(numRacers).fill().map((_, i) => {
 	}
 
 	const shipGLTF = jellies[shipGLTFIndex % jellies.length];
+/*
+	const shader = new THREE.MeshStandardMaterial({
+		color: new THREE.Color(0x0055ff), // A deep blue, adjust as needed
+		roughness: 0.3, // Slightly glossy
+		metalness: 0.1, // Low metalness for a more organic feel
+		transparent: true,
+		morphNormals:false,
+		morphTargets:false,
+		opacity: 0.85, // Slightly translucent
+		emissive: new THREE.Color(0x112244), // Soft bioluminescence, adjust color as needed
+		emissiveIntensity: 0.2 // Adjust intensity as needed
+	});
 
 	const shader = new THREE.ShaderMaterial({
 		vertexShader: jellyVertexShader,
 		fragmentShader: jellyFragmentShader,
 	})
+		*/
 
 	shipGLTF.scene.traverse((child) => {
 		if (child.isMesh) {
-			child.material = shader;
+			const standardMaterial = child.material;
+			const physicalMaterial = new THREE.MeshPhysicalMaterial({
+				color: standardMaterial.color,
+				map: standardMaterial.map,
+				aoMap: standardMaterial.aoMap,
+				roughness: 0.25,
+				clearcoat: 0.75,
+				clearcoatMap: standardMaterial.aoMap,
+				clearcoatRoughness: 0.1,
+				specularIntensityMap: standardMaterial.aoMap,
+				specularColorMap: standardMaterial.map,
+				normalMap: standardMaterial.normalMap,
+				normalScale: new THREE.Vector2(0.3, 0.3),
+				metalness: 0.1,
+				//emissive: new THREE.Color(0x112244),
+				//emissiveIntensity: 0.2
+			});
+
+			child.material = physicalMaterial;
 		}
 	});
 
 	if (shipGLTF.animations.length === 0) {
 		console.warn("Craig!", `houdini/export/jelly/jelly_${i % jellies.length}.glb`, "has no animations!");
 	}
-	const racer = new Racer(i, shipGLTF);
+	const racer = new Racer(i, shipGLTF, 0);
 	racer.loadIntoLevel(level);
 	return racer;
 });
